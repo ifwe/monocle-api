@@ -1,0 +1,5 @@
+--require ./test/test_runner
+--reporter dot
+--ui bdd
+--timeout 200
+--recursive
