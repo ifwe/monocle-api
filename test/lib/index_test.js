@@ -404,4 +404,114 @@ describe('ApiRouter', function() {
             });
         });
     });
+
+    describe('connect middleware', function() {
+        beforeEach(function() {
+            // Configure router
+            this.router.get('/foo', {
+                props: {
+                    bar: 'string'
+                }
+            }, function(params, req) {
+                return {
+                    bar: 'test_bar'
+                };
+            });
+
+            // Stub request
+            this.req = {
+                method: 'GET',
+                url: '/foo?props=bar'
+            };
+
+            // Stub response
+            this.res = {
+                setHeader: sinon.spy(),
+                end: sinon.spy()
+            };
+
+            // Stub next
+            this.next = sinon.spy();
+        });
+
+        it('is a function', function() {
+            var middleware = this.router.middleware();
+            middleware.should.be.a('function');
+        });
+
+        describe('GET request matching API endpoint', function() {
+            beforeEach(function() {
+                this.req.method ='GET';
+                this.req.url = '/foo?props=bar';
+                this.middleware = this.router.middleware();
+            });
+
+            it('responds with HTTP status code 200', function(done) {
+                this.res.end = sinon.spy(function() {
+                    this.res.should.have.property('statusCode', 200);
+                    done();
+                }.bind(this));
+                this.middleware(this.req, this.res, this.next);
+            });
+
+            it('responds with header Content-Type: application/json', function(done) {
+                this.res.end = sinon.spy(function() {
+                    this.res.setHeader.calledWith('Content-Type', 'application/json').should.be.true;
+                    done();
+                }.bind(this));
+                this.middleware(this.req, this.res, this.next);
+            });
+
+            it('responds with JSON body', function(done) {
+                this.res.end = sinon.spy(function() {
+                    this.res.end.lastCall.args[0].should.be.ok;
+                    var obj = JSON.parse(this.res.end.lastCall.args[0]);
+                    obj.should.contain({
+                        bar: 'test_bar'
+                    });
+                    done();
+                }.bind(this));
+                this.middleware(this.req, this.res, this.next);
+            });
+        });
+
+        describe('GET request not matching API endpoint', function() {
+            beforeEach(function() {
+                this.req.method ='GET';
+                this.req.url = '/unknown?props=bar';
+                this.middleware = this.router.middleware();
+            });
+
+            it('responds with HTTP status code 404', function(done) {
+                this.res.end = sinon.spy(function() {
+                    this.res.should.have.property('statusCode', 404);
+                    done();
+                }.bind(this));
+                this.middleware(this.req, this.res, this.next);
+            });
+
+            it('responds with header Content-Type: application/json', function(done) {
+                this.res.end = sinon.spy(function() {
+                    this.res.setHeader.calledWith('Content-Type', 'application/json').should.be.true;
+                    done();
+                }.bind(this));
+                this.middleware(this.req, this.res, this.next);
+            });
+
+            it('responds with JSON body', function(done) {
+                this.res.end = sinon.spy(function() {
+                    this.res.end.lastCall.args[0].should.be.ok;
+                    var obj = JSON.parse(this.res.end.lastCall.args[0]);
+                    obj.should.not.contain({
+                        bar: 'test_bar'
+                    });
+
+                    // TODO: Determine standard model for error objects
+                    obj.should.have.property('error');
+                    done();
+                }.bind(this));
+                this.middleware(this.req, this.res, this.next);
+            });
+        });
+    });
 });
