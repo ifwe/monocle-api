@@ -3,6 +3,16 @@ API Router Connect
 
 A configuration-driven API router that exposes middleware for Connect to easily add to any Connect/Express server.
 
+## Features
+
+### Client-driven
+
+Only each client knows their own needs, so when communicating with the API, each client can specify the properties of a resource it is interested. Want the `user` resource without getting a ton of extra data that you'll never use? No problem!
+
+### Schemas
+
+API Router uses [JSON Schema](http://json-schema.org/) to configure and validate APIs. This encourages API consistency by validating return values and allows you to view the schema by appending `?schema` to any resource URL.
+
 ## Basic Usage
 
 ```js
