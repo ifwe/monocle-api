@@ -22,13 +22,25 @@ describe('ApiRouter', function() {
     });
 
     describe('getting a resource', function() {
+        var schema1 = {
+            id: '/foo',
+            type: 'object',
+            properties: {
+                bar: { type: 'string' },
+                derp: { type: 'integer' }
+            }
+        };
+
+        var schema2 = {
+            id: '/foo',
+            type: 'object',
+            properties: {
+                bat: { type: 'string' }
+            }
+        }
+
         beforeEach(function() {
-            this.router.get('/foo', {
-                props: {
-                    bar: 'string',
-                    derp: 'number'
-                }
-            }, function(params) {
+            this.router.get('/foo', schema1, function(params) {
                 return {
                     bar: 'test_bar',
                     derp: 123
@@ -41,11 +53,7 @@ describe('ApiRouter', function() {
                 };
             });
 
-            this.router.get('/foo', {
-                props: {
-                    bat: 'string'
-                }
-            }, this.batSpy);
+            this.router.get('/foo', schema2, this.batSpy);
         });
 
         it('returns data from callback', function(done) {
@@ -105,8 +113,9 @@ describe('ApiRouter', function() {
     describe('duplicate props', function() {
         beforeEach(function() {
             this.router.get('/foo', {
-                props: {
-                    bar: 'string'
+                type: 'object',
+                properties: {
+                    bar: { type: 'string' }
                 }
             }, function(params) {
                 return {
@@ -122,9 +131,10 @@ describe('ApiRouter', function() {
             });
 
             this.router.get('/foo', {
-                props: {
-                    bar: 'string',
-                    derp: 'string'
+                type: 'object',
+                properties: {
+                    bar: { type: 'string' },
+                    derp: { type: 'string' }
                 }
             }, this.barSpy);
         });
@@ -144,25 +154,27 @@ describe('ApiRouter', function() {
     describe('schema', function() {
         beforeEach(function() {
             this.router.get('/foo', {
-                props: {
-                    bar: 'string'
+                type: 'object',
+                properties: {
+                    bar: { type: 'string' }
                 }
             }, function() {});
 
-            this.barSpy = sinon.spy();
-
             this.router.get('/foo', {
-                props: {
-                    bar: 'string',
-                    derp: 'number'
+                type: 'object',
+                properties: {
+                    derp: { type: 'integer' }
                 }
             }, function() {});
         });
 
         it('is returned based on defined routes', function() {
             this.router.getSchema('/foo').should.deep.equal({
-                bar: 'string',
-                derp: 'number'
+                type: 'object',
+                properties: {
+                    bar: { type: 'string' },
+                    derp: { type: 'integer' }
+                }
             });
         });
     });
@@ -170,8 +182,9 @@ describe('ApiRouter', function() {
     describe('return value validation', function() {
         it('fails when callback does not return proper type', function(done) {
             this.router.get('/foo', {
-                props: {
-                    bar: 'string'
+                type: 'object',
+                properties: {
+                    bar: { type: 'string' }
                 }
             }, function() {
                 return {
@@ -183,15 +196,15 @@ describe('ApiRouter', function() {
             }).then(function(result) {
                 result.should.not.be.ok;
             }).catch(function(error) {
-                error.should.contain('Expected bar to be a string');
+                error.should.contain('did not validate');
             }).finally(done);
         });
 
         it('fails when callback returns an object with a missing key', function(done) {
             this.router.get('/foo', {
-                props: {
-                    bar: 'string',
-                    baz: 'string'
+                properties: {
+                    bar: { type: 'string' },
+                    baz: { type: 'string' }
                 }
             }, function() {
                 return {
@@ -227,7 +240,10 @@ describe('ApiRouter', function() {
                     });
 
                     this.router.get(route, {
-                        props: { bar: 'string' }
+                        type: 'object',
+                        properties: {
+                            bar: { type: 'string' }
+                        }
                     }, callback);
 
                     this.router.handleGet(path, {
@@ -249,6 +265,26 @@ describe('ApiRouter', function() {
                 return [new Date().getTime() / 1000, 0];
             });
             this.clock = sinon.useFakeTimers();
+
+            this.resource = '/foo';
+            this.schemas = [
+                { type: 'object', properties: { bar: { type: 'string' } } },
+                { type: 'object', properties: { baz: { type: 'string' } } },
+                { type: 'object', properties: { bat: { type: 'string' } } }
+            ];
+
+            this.schemas.forEach(function(schema) {
+                this.router.get(this.resource, schema, function() {
+                    this.clock.tick(500);
+                    var result = {};
+                    for (var i in schema.properties) {
+                        if (!schema.properties.hasOwnProperty(i)) continue;
+                        result[i] = 'test_' + i;
+                    };
+                    return result;
+                }.bind(this));
+            }.bind(this));
+            this.eventSpy = sinon.spy();
         });
 
         afterEach(function() {
@@ -257,171 +293,101 @@ describe('ApiRouter', function() {
         });
 
         describe('api:handler', function() {
-            it('is emitted with details about the handler that will fulfill the request', function(done) {
-                var resource = '/foo';
-                var options = { props: { bar: 'string' } };
+            beforeEach(function() {
+                this.router.on('api:handler', this.eventSpy);
+            });
 
-                this.router.get(resource, options, function() {
-                    return {
-                        bar: 'test_bar'
-                    };
-                });
-                var spy = sinon.spy();
-                this.router.on('api:handler', spy);
-                this.router.handleGet(resource, { props: ['bar'] })
+            it('is emitted with details about the handler that will fulfill the request', function(done) {
+                this.router.handleGet(this.resource, { props: ['bar'] })
                 .finally(function() {
-                    spy.calledOnce.should.be.true;
-                    var callArgs = spy.lastCall.args[0];
+                    this.eventSpy.calledOnce.should.be.true;
+                    var callArgs = this.eventSpy.lastCall.args[0];
                     callArgs.should.contain({ method: 'GET' });
                     callArgs.should.contain({ resource: '/foo' });
-                    callArgs.should.have.property('options', options);
+                    callArgs.should.have.property('schema', this.schemas[0]);
                     callArgs.should.have.property('args');
                     callArgs.args.should.be.an('array');
                     done();
-                });
+                }.bind(this));
             });
 
             it('is emitted for each handler that is called to fulfill the request', function(done) {
-                var resource = '/foo';
-                var options = [
-                    { props: { bar: 'string' } },
-                    { props: { baz: 'string' } },
-                    { props: { bat: 'string' } }
-                ];
-
-                options.forEach(function(_options) {
-                    this.router.get(resource, _options, function() {
-                        var result = {};
-                        for (var i in _options.props) {
-                            if (!_options.props.hasOwnProperty(i)) continue;
-                            result[i] = 'test_' + i;
-                        };
-                        return result;
-                    });
-                }.bind(this));
-
-                var spy = sinon.spy();
-                this.router.on('api:handler', spy);
-
-                this.router.handleGet(resource, { props: ['bar', 'baz', 'bat'] })
+                this.router.handleGet(this.resource, { props: ['bar', 'baz', 'bat'] })
                 .finally(function() {
-                    spy.calledThrice.should.be.true;
-                    options.forEach(function(_options, i) {
-                        var callArgs = spy.getCall(i).args[0];
+                    this.eventSpy.calledThrice.should.be.true;
+                    this.schemas.forEach(function(schema, i) {
+                        var callArgs = this.eventSpy.getCall(i).args[0];
                         callArgs.should.contain({ method: 'GET' });
                         callArgs.should.contain({ resource: '/foo' });
-                        callArgs.should.have.property('options', _options);
+                        callArgs.should.have.property('schema', schema);
                         callArgs.should.have.property('args');
                         callArgs.args.should.be.an('array');
-                    });
+                    }.bind(this));
                     done();
-                });
+                }.bind(this));
             });
 
             it('is not emitted if request cannot be fulfilled', function(done) {
-                var resource = '/foo';
-                var options = { props: { bar: 'string' } };
-
-                this.router.get(resource, options, function() {
-                    return {
-                        bar: 'test_bar'
-                    };
-                });
-                var spy = sinon.spy();
-                this.router.on('api:handler', spy);
-                this.router.handleGet(resource, { props: ['unknown'] })
+                this.router.handleGet(this.resource, { props: ['unknown'] })
                 .catch(function(error) {
                     error.should.be.ok;
                 })
                 .finally(function() {
-                    spy.called.should.be.false;
+                    this.eventSpy.called.should.be.false;
                     done();
-                });
+                }.bind(this));
             });
         });
 
         describe('api:success', function() {
-            it('is emitted if request is fulfilled', function(done) {
-                var resource = '/foo';
-                var options = { props: { bar: 'string' } };
+            beforeEach(function() {
+                this.router.on('api:success', this.eventSpy);
+            });
 
-                this.router.get(resource, options, function() {
-                    this.clock.tick(500);
-                    return {
-                        bar: 'test_bar'
-                    };
-                }.bind(this));
-                var spy = sinon.spy();
-                this.router.on('api:success', spy);
-                this.router.handleGet(resource, { props: ['bar'] })
+            it('is emitted if request is fulfilled', function(done) {
+                this.router.handleGet(this.resource, { props: ['bar'] })
                 .finally(function() {
-                    spy.called.should.be.true;
-                    var data = spy.lastCall.args[0];
+                    this.eventSpy.called.should.be.true;
+                    var data = this.eventSpy.lastCall.args[0];
                     data.should.have.property('duration', 500);
                     done();
-                });
+                }.bind(this));
             });
 
             it('is not emitted if request is not fulfilled', function(done) {
-                var resource = '/foo';
-                var options = { props: { bar: 'string' } };
-
-                this.router.get(resource, options, function() {
-                    return {
-                        bar: 'test_bar'
-                    };
-                });
-                var spy = sinon.spy();
-                this.router.on('api:success', spy);
-                this.router.handleGet(resource, { props: ['unknown'] })
+                this.router.handleGet(this.resource, { props: ['unknown'] })
                 .catch(function(error) {
                     error.should.be.ok;
                 })
                 .finally(function() {
-                    spy.called.should.be.false;
+                    this.eventSpy.called.should.be.false;
                     done();
-                });
+                }.bind(this));
             });
         });
 
         describe('api:error', function() {
-            it('is emitted if request cannot be fulfilled', function(done) {
-                var resource = '/foo';
-                var options = { props: { bar: 'string' } };
+            beforeEach(function() {
+                this.router.on('api:error', this.eventSpy);
+            });
 
-                this.router.get(resource, options, function() {
-                    return {
-                        bar: 'test_bar'
-                    };
-                });
-                var spy = sinon.spy();
-                this.router.on('api:error', spy);
-                this.router.handleGet(resource, { props: ['unkown'] })
+            it('is emitted if request cannot be fulfilled', function(done) {
+                this.router.handleGet(this.resource, { props: ['unkown'] })
                 .catch(function(error) {
                     error.should.be.ok;
                 })
                 .finally(function() {
-                    spy.called.should.be.true;
+                    this.eventSpy.called.should.be.true;
                     done();
-                });
+                }.bind(this));
             });
 
             it('is not emitted if request is fulfilled', function(done) {
-                var resource = '/foo';
-                var options = { props: { bar: 'string' } };
-
-                this.router.get(resource, options, function() {
-                    return {
-                        bar: 'test_bar'
-                    };
-                });
-                var spy = sinon.spy();
-                this.router.on('api:error', spy);
-                this.router.handleGet(resource, { props: ['bar'] })
+                this.router.handleGet(this.resource, { props: ['bar'] })
                 .finally(function() {
-                    spy.called.should.be.false;
+                    this.eventSpy.called.should.be.false;
                     done();
-                });
+                }.bind(this));
             });
         });
     });
@@ -430,8 +396,9 @@ describe('ApiRouter', function() {
         beforeEach(function() {
             // Configure router
             this.router.get('/foo', {
-                props: {
-                    bar: 'string'
+                type: 'object',
+                properties: {
+                    bar: { type: 'string' }
                 }
             }, function(params, req) {
                 return {
@@ -440,8 +407,9 @@ describe('ApiRouter', function() {
             });
 
             this.router.get('/derp', {
-                props: {
-                    flerp: 'string'
+                type: 'object',
+                properties: {
+                    flerp: { type: 'string' }
                 }
             }, function(params, req) {
                 return {
@@ -508,8 +476,9 @@ describe('ApiRouter', function() {
 
             it('responds with HTTP status code of 500 when unable to generate JSON', function(done) {
                 this.router.get('/bad-resource', {
-                    props: {
-                        bar: 'object'
+                    type: 'object',
+                    properties: {
+                        bar: { type: 'object' }
                     }
                 }, function(params, req) {
                     // Create a bad object
@@ -592,8 +561,11 @@ describe('ApiRouter', function() {
                 this.res.end = sinon.spy(function() {
                     this.res.end.lastCall.args[0].should.be.ok;
                     var obj = JSON.parse(this.res.end.lastCall.args[0]);
-                    obj.should.contain({
-                        bar: 'string'
+                    obj.should.deep.equal({
+                        type: 'object',
+                        properties: {
+                            bar: { type: 'string' }
+                        }
                     });
                     done();
                 }.bind(this));

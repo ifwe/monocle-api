@@ -18,11 +18,12 @@ var mockUserBasicInfo = require('./data/user-basic-info');
 var mockUserEmails = require('./data/user-emails');
 
 api.get('/users/:userId', {
-    props: {
-        userId: 'number',
-        displayName: 'string',
-        age: 'number',
-        gender: 'string'
+    type: 'object',
+    properties: {
+        userId: { type: 'integer' },
+        displayName: { type: 'string' },
+        age: { type: 'integer' },
+        gender: { type: 'string' }
     }
 }, function(params) {
     return new Promise(function(resolve, reject) {
@@ -38,9 +39,10 @@ api.get('/users/:userId', {
 });
 
 api.get('/users/:userId', {
-    props: {
-        userId: 'number',
-        email: 'string'
+    type: 'object',
+    properties: {
+        userId: { type: 'integer' },
+        email: { type: 'string' }
     }
 }, function(params) {
     return new Promise(function(resolve, reject) {
@@ -56,9 +58,10 @@ api.get('/users/:userId', {
 });
 
 api.get('/reflect/:myParam', {
-    props: {
-        myParam: 'string',
-        url: 'string'
+    type: 'object',
+    properties: {
+        myParam: { type: 'string' },
+        url: { type: 'string' }
     }
 }, function(params, req) {
     return {

@@ -20,11 +20,12 @@ var api = new ApiRouter();
 
 // Configure your first API route
 api.get('/users/:userId', {
-    props: {
-        userId: 'number',
-        displayName: 'string',
-        age: 'number',
-        gender: 'string'
+    type: 'object',
+    properties: {
+        userId: { type: 'integer' },
+        displayName: { type: 'string' },
+        age: { type: 'integer' },
+        gender: { type: 'string' }
     }
 }, function(params, req) {
     // params ex: { userId: '12345'}
@@ -34,9 +35,10 @@ api.get('/users/:userId', {
 
 // Other properties for the same resource can be defined in separate handlers
 api.get('/users/:userId', {
-    props: {
-        userId: 'number',
-        email: 'string'
+    type: 'object',
+    properties: {
+        userId: { type: 'integer' },
+        email: { type: 'string' }
     }
 }, function(params, req) {
     // return object with `email` property or a promise
@@ -97,8 +99,36 @@ Transfer-Encoding: chunked
 {
   "error": "Unable to find basic info for user id 500"
 }
-```
 
+$ curl -i http://127.0.0.1:5150/my-api/users/1?schema
+HTTP/1.1 200 OK
+Content-Type: application/json
+X-Response-Time: 0.169ms
+Date: Thu, 13 Aug 2015 20:47:46 GMT
+Connection: keep-alive
+Transfer-Encoding: chunked
+
+{
+  "type": "object",
+  "properties": {
+    "userId": {
+      "type": "integer"
+    },
+    "displayName": {
+      "type": "string"
+    },
+    "age": {
+      "type": "integer"
+    },
+    "gender": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    }
+  }
+}
+```
 
 See the demo for advanced usage.
 
