@@ -33,7 +33,7 @@ api.get('/users/:userId', {
             } else {
                 reject('Unable to find basic info for user id ' + params.userId);
             }
-        }, 100);
+        });
     });
 });
 
@@ -51,7 +51,7 @@ api.get('/users/:userId', {
             } else {
                 reject('Unable to find email for user id ' + params.userId);
             }
-        }, 100);
+        });
     });
 });
 
