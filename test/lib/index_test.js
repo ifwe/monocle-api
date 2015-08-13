@@ -14,7 +14,7 @@ describe('ApiRouter', function() {
     });
 
     ['get', 'post', 'put', 'delete', 'patch', 'options'].forEach(function(method) {
-        describe('.' + method, function() {
+        describe('convenience method .' + method, function() {
             it('is a function', function() {
                 this.router[method].should.be.a('function');
             });
@@ -251,7 +251,7 @@ describe('ApiRouter', function() {
                 .finally(function() {
                     spy.calledOnce.should.be.true;
                     var callArgs = spy.lastCall.args[0];
-                    callArgs.should.contain({ method: 'get' });
+                    callArgs.should.contain({ method: 'GET' });
                     callArgs.should.contain({ resource: '/foo' });
                     callArgs.should.have.property('options', options);
                     callArgs.should.have.property('args');
@@ -287,7 +287,7 @@ describe('ApiRouter', function() {
                     spy.calledThrice.should.be.true;
                     options.forEach(function(_options, i) {
                         var callArgs = spy.getCall(i).args[0];
-                        callArgs.should.contain({ method: 'get' });
+                        callArgs.should.contain({ method: 'GET' });
                         callArgs.should.contain({ resource: '/foo' });
                         callArgs.should.have.property('options', _options);
                         callArgs.should.have.property('args');
@@ -427,7 +427,8 @@ describe('ApiRouter', function() {
             // Stub response
             this.res = {
                 setHeader: sinon.spy(),
-                end: sinon.spy()
+                end: sinon.spy(),
+                statusCode: 200 // default
             };
 
             // Stub next
@@ -473,6 +474,25 @@ describe('ApiRouter', function() {
                 }.bind(this));
                 this.middleware(this.req, this.res, this.next);
             });
+
+            it('responds with HTTP status code of 500 when unable to generate JSON', function(done) {
+                this.router.get('/bad-resource', {
+                    props: {
+                        bar: 'object'
+                    }
+                }, function(params, req) {
+                    // Create a bad object
+                    var result = {};
+                    result.bar = result; // circular reference cannot be JSONified
+                    return result;
+                });
+                this.req.url = '/bad-resource?props=bar'
+                this.res.end = sinon.spy(function() {
+                    this.res.should.have.property('statusCode', 500);
+                    done();
+                }.bind(this));
+                this.middleware(this.req, this.res, this.next);
+            });
         });
 
         describe('GET request not matching API endpoint', function() {
@@ -508,6 +528,42 @@ describe('ApiRouter', function() {
 
                     // TODO: Determine standard model for error objects
                     obj.should.have.property('error');
+                    done();
+                }.bind(this));
+                this.middleware(this.req, this.res, this.next);
+            });
+        });
+
+        describe('GET valid schema', function() {
+            beforeEach(function() {
+                this.req.method ='GET';
+                this.req.url = '/foo?schema';
+                this.middleware = this.router.middleware();
+            });
+
+            it('responds with HTTP status code 200', function(done) {
+                this.res.end = sinon.spy(function() {
+                    this.res.should.have.property('statusCode', 200);
+                    done();
+                }.bind(this));
+                this.middleware(this.req, this.res, this.next);
+            });
+
+            it('responds with header Content-Type: application/json', function(done) {
+                this.res.end = sinon.spy(function() {
+                    this.res.setHeader.calledWith('Content-Type', 'application/json').should.be.true;
+                    done();
+                }.bind(this));
+                this.middleware(this.req, this.res, this.next);
+            });
+
+            it('responds with JSON body', function(done) {
+                this.res.end = sinon.spy(function() {
+                    this.res.end.lastCall.args[0].should.be.ok;
+                    var obj = JSON.parse(this.res.end.lastCall.args[0]);
+                    obj.should.contain({
+                        bar: 'string'
+                    });
                     done();
                 }.bind(this));
                 this.middleware(this.req, this.res, this.next);
