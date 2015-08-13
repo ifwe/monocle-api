@@ -21,26 +21,46 @@ describe('ApiRouter', function() {
         });
     });
 
+    describe('registering a resource', function() {
+        [
+            'get',
+            'GET',
+            'Get'
+        ].forEach(function(method) {
+            it('supports mixed case for method: ' + method, function() {
+                expect(function() {
+                    this.router.register(method, '/anything', {}, sinon.spy());
+                }.bind(this)).to.not.throw();
+            });
+        });
+
+        [
+            'invalid',                              // schema can't be a string
+            { properties: ['string', 'integer'] }   // properties in incorrect format
+        ].forEach(function(invalidSchema) {
+            it('throws exception when schema is invalid: ' + JSON.stringify(invalidSchema), function() {
+                expect(function() {
+                    this.router.register('GET', '/anything', invalidSchema, sinon.spy());
+                }.bind(this)).to.throw('Invalid schema');
+            });
+        });
+
+        it('throws exception for invalid method', function() {
+            expect(function() {
+                this.router.register('DERP', '/anything', {}, sinon.spy());
+            }.bind(this)).to.throw('Invalid method');
+        });
+    });
+
     describe('getting a resource', function() {
-        var schema1 = {
-            id: '/foo',
-            type: 'object',
-            properties: {
-                bar: { type: 'string' },
-                derp: { type: 'integer' }
-            }
-        };
-
-        var schema2 = {
-            id: '/foo',
-            type: 'object',
-            properties: {
-                bat: { type: 'string' }
-            }
-        }
-
         beforeEach(function() {
-            this.router.get('/foo', schema1, function(params) {
+            this.router.get('/foo', {
+                type: 'object',
+                properties: {
+                    bar: { type: 'string' },
+                    derp: { type: 'integer' }
+                }
+            }, function(params) {
                 return {
                     bar: 'test_bar',
                     derp: 123
@@ -53,7 +73,12 @@ describe('ApiRouter', function() {
                 };
             });
 
-            this.router.get('/foo', schema2, this.batSpy);
+            this.router.get('/foo', {
+                type: 'object',
+                properties: {
+                    bat: { type: 'string' }
+                }
+            }, this.batSpy);
         });
 
         it('returns data from callback', function(done) {
@@ -166,10 +191,17 @@ describe('ApiRouter', function() {
                     derp: { type: 'integer' }
                 }
             }, function() {});
+
+            this.router.get('/bad-schema', {
+                type: 'huh',
+                properties: {
+                    thingy: { type: 'invalid' }
+                }
+            }, function() {});
         });
 
         it('is returned based on defined routes', function() {
-            this.router.getSchema('/foo').should.deep.equal({
+            this.router.getSchema(ApiRouter.METHOD_GET, '/foo').should.deep.equal({
                 type: 'object',
                 properties: {
                     bar: { type: 'string' },
