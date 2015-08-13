@@ -1,0 +1,17 @@
+{
+  "name": "demo",
+  "version": "1.0.0",
+  "description": "API Router Demo",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bluebird": "2.9.34",
+    "body-parser": "1.13.3",
+    "connect": "3.4.0",
+    "response-time": "2.3.1"
+  }
+}
