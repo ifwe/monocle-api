@@ -186,6 +186,27 @@ describe('ApiRouter', function() {
                 error.should.contain('Expected bar to be a string');
             }).finally(done);
         });
+
+        it('fails when callback returns an object with a missing key', function(done) {
+            this.router.get('/foo', {
+                props: {
+                    bar: 'string',
+                    baz: 'string'
+                }
+            }, function() {
+                return {
+                    bar: 'test_bar'
+                    // intentionally missing `baz` property
+                }
+            });
+            this.router.handleGet('/foo', {
+                props: ['bar', 'baz']
+            }).then(function(result) {
+                result.should.not.be.ok;
+            }).catch(function(error) {
+                error.should.contain('Missing property');
+            }).finally(done);
+        });
     });
 
     describe('parameters', function() {
@@ -418,6 +439,16 @@ describe('ApiRouter', function() {
                 };
             });
 
+            this.router.get('/derp', {
+                props: {
+                    flerp: 'string'
+                }
+            }, function(params, req) {
+                return {
+                    flerp: 'test_flerp'
+                };
+            });
+
             // Stub request
             this.req = {
                 method: 'GET',
@@ -567,6 +598,21 @@ describe('ApiRouter', function() {
                     done();
                 }.bind(this));
                 this.middleware(this.req, this.res, this.next);
+            });
+        });
+
+        describe('GET request not matching base path', function() {
+            beforeEach(function() {
+                this.middleware = this.router.middleware({
+                    basePath: '/my-api'
+                });
+            });
+
+            it('calls next', function() {
+                this.req.method ='GET';
+                this.req.url = '/foo?props=bar';
+                this.middleware(this.req, this.res, this.next);
+                this.next.called.should.be.true;
             });
         });
     });
