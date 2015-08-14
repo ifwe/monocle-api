@@ -3,9 +3,6 @@ var app = connect();
 
 var Promise = require('bluebird');
 
-var responseTime = require('response-time');
-app.use(responseTime());
-
 var bodyParser = require('body-parser');
 app.use(bodyParser.urlencoded({
     extended: false
@@ -17,7 +14,7 @@ var api = new ApiRouter();
 var mockUserBasicInfo = require('./data/user-basic-info');
 var mockUserEmails = require('./data/user-emails');
 
-api.get('/users/:userId', {
+var userSchema = {
     type: 'object',
     properties: {
         userId: { type: 'integer' },
@@ -25,7 +22,16 @@ api.get('/users/:userId', {
         age: { type: 'integer' },
         gender: { type: 'string' }
     }
-}, function(params) {
+};
+
+api.get('/users', {
+    type: 'array',
+    items: userSchema
+}, function() {
+    return mockUserBasicInfo;
+});
+
+api.get('/users/:userId', userSchema, function(params) {
     return new Promise(function(resolve, reject) {
         setTimeout(function() {
             var userBasicInfo = mockUserBasicInfo[params.userId];
