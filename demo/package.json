@@ -11,6 +11,7 @@
   "dependencies": {
     "bluebird": "2.9.34",
     "body-parser": "1.13.3",
-    "connect": "3.4.0"
+    "connect": "3.4.0",
+    "lodash": "3.10.1"
   }
 }

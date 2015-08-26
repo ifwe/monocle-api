@@ -4,7 +4,7 @@ var path = require('path');
 GLOBAL.LIB_DIR = path.join(process.cwd(), 'lib');
 
 // Set up in-place instrumentation for code coverage
-require('blanket')({ pattern: LIB_DIR });
+// require('blanket')({ pattern: LIB_DIR });
 
 // Set up sinon
 GLOBAL.sinon = require('sinon');
