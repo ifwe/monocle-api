@@ -4,7 +4,8 @@
   "description": "Tagged's seed project for NPM packages",
   "main": "lib/index.js",
   "scripts": {
-    "test": "grunt test"
+    "test": "grunt test",
+    "demo": "nodemon demo/index.js"
   },
   "repository": {
     "type": "git",
