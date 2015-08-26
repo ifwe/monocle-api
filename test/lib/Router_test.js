@@ -4,10 +4,6 @@ var Resource = require('../../lib/Resource');
 var Promise = require('bluebird');
 
 describe('API Router', function() {
-    beforeEach(function() {
-
-    });
-
     it('is a constructor', function() {
         var router = new Router();
         router.should.be.instanceOf(Router);
@@ -190,6 +186,106 @@ describe('API Router', function() {
                 });
             }.bind(this))
             .finally(done);
+        });
+    });
+
+    describe('events', function() {
+        describe('api:success', function() {
+            beforeEach(function() {
+                this.eventSpy = sinon.spy();
+                this.router = new Router();
+                this.resourcePattern = '/foo/:fooId';
+                this.resourceId = '/foo/123';
+                this.schema = {
+                    type: 'object',
+                    properties: {
+                        bar: { type: 'string' }
+                    }
+                };
+
+                // Configure router
+                this.router.route(this.resourcePattern, this.schema, {
+                    get: function(params, req) {
+                        return {
+                            bar: 'test_bar'
+                        };
+                    }
+                });
+
+                this.router.on('api:success', this.eventSpy);
+            });
+
+            it('calls event callback on success', function(done) {
+                this.router.get(this.resourceId)
+                .finally(function() {
+                    this.eventSpy.called.should.be.true;
+                    this.eventSpy.lastCall.args[0].should.have.property('resourceId', this.resourceId);
+                    this.eventSpy.lastCall.args[0].should.have.property('schema', this.schema);
+                    this.eventSpy.lastCall.args[0].should.have.property('request');
+                    this.eventSpy.lastCall.args[0].request.should.be.instanceOf(Request);
+                    done();
+                }.bind(this));
+            });
+
+            it('does not call event callback on failure', function(done) {
+                this.router.get('/bad-resource')
+                .catch(function(result) {
+                    // continue
+                })
+                .finally(function() {
+                    this.eventSpy.called.should.be.false;
+                    done();
+                }.bind(this));
+            });
+        });
+
+        describe('api:error', function() {
+            beforeEach(function() {
+                this.eventSpy = sinon.spy();
+                this.router = new Router();
+                this.resourcePattern = '/foo/:fooId';
+                this.resourceId = '/foo/123';
+                this.schema = {
+                    type: 'object',
+                    properties: {
+                        bar: { type: 'string' }
+                    }
+                };
+
+                // Configure router
+                this.router.route(this.resourcePattern, this.schema, {
+                    get: function(params, req) {
+                        return {
+                            bar: 'test_bar'
+                        };
+                    }
+                });
+
+                this.router.on('api:error', this.eventSpy);
+            });
+
+            it('calls event callback on error', function(done) {
+                this.router.get('/bad-resource')
+                .catch(function(result) {
+                    // continue
+                })
+                .finally(function() {
+                    this.eventSpy.called.should.be.true;
+                    this.eventSpy.lastCall.args[0].should.have.property('resourceId', '/bad-resource');
+                    this.eventSpy.lastCall.args[0].should.have.property('request');
+                    this.eventSpy.lastCall.args[0].should.have.property('schema', null);
+                    this.eventSpy.lastCall.args[0].request.should.be.instanceOf(Request);
+                    done();
+                }.bind(this));
+            });
+
+            it('does not call event callback on success', function(done) {
+                this.router.get(this.resourceId)
+                .finally(function() {
+                    this.eventSpy.called.should.be.false;
+                    done();
+                }.bind(this));
+            });
         });
     });
 
