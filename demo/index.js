@@ -14,6 +14,12 @@ var Resource = require('../lib').Resource;
 
 var connect = require('connect');
 var app = connect();
+
+// Allow method override via ?_method=METHOD query string parameter
+var methodOverride = require('method-override');
+app.use(methodOverride('_method', {
+    methods: [ 'GET', 'POST' ] // Specifies which methods can support overrides
+}));
 var bodyParser = require('body-parser');
 app.use(bodyParser.json());
 

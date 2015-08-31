@@ -154,6 +154,89 @@ describe('API Router', function() {
         });
     });
 
+    describe('OPTIONS /', function() {
+        beforeEach(function() {
+            var noop = function() {};
+            this.router = new Router();
+
+            this.fooSchema = {
+                type: 'object',
+                properties: {
+                    foo: { type: 'string' }
+                }
+            };
+
+            this.barSchema = {
+                type: 'object',
+                properties: {
+                    bar: { type: 'integer' }
+                }
+            };
+
+            this.bazSchema = {
+                type: 'object',
+                properties: {
+                    baz: { type: 'string' },
+                    bat: { type: 'integer' }
+                }
+            }
+
+            this.router
+            .route('/foo', this.fooSchema, { get: noop })
+            .route('/bar', this.barSchema, { get: noop, post: noop })
+            .route('/baz', this.bazSchema, { get: [
+                {
+                    props: ['baz'],
+                    callback: noop
+                },
+                {
+                    props: ['bat'],
+                    callback: noop
+                }
+            ]});
+        });
+
+        it('returns details about all routes', function(done) {
+            this.router.options('/')
+            .then(function(result) {
+                result.should.be.an('array');
+                result.should.have.lengthOf(3); // three routes were defined
+
+                result[0].should.have.property('pattern', '/foo');
+                result[0].should.have.property('schema', this.fooSchema);
+                result[0].should.have.property('methods');
+                result[0].methods.should.contain('GET');
+                result[0].methods.should.contain('OPTIONS');
+                result[0].methods.should.not.contain('POST');
+                result[0].methods.should.not.contain('PUT');
+                result[0].methods.should.not.contain('PATCH');
+                result[0].methods.should.not.contain('DELETE');
+
+                result[1].should.have.property('pattern', '/bar');
+                result[1].should.have.property('schema', this.barSchema);
+                result[1].should.have.property('methods');
+                result[1].methods.should.contain('GET');
+                result[1].methods.should.contain('OPTIONS');
+                result[1].methods.should.contain('POST');
+                result[1].methods.should.not.contain('PUT');
+                result[1].methods.should.not.contain('PATCH');
+                result[1].methods.should.not.contain('DELETE');
+
+                result[2].should.have.property('pattern', '/baz');
+                result[2].should.have.property('schema', this.bazSchema);
+                result[2].should.have.property('methods');
+                result[2].methods.should.contain('GET');
+                result[2].methods.should.contain('OPTIONS');
+                result[2].methods.should.not.contain('POST');
+                result[2].methods.should.not.contain('PUT');
+                result[2].methods.should.not.contain('PATCH');
+                result[2].methods.should.not.contain('DELETE');
+                done();
+            }.bind(this))
+            .catch(done);
+        });
+    });
+
     describe('request', function() {
         beforeEach(function() {
             this.router = new Router();
