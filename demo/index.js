@@ -27,16 +27,14 @@ app.use(bodyParser.json());
 
 var mockUserBasicInfo = require('./data/user-basic-info');
 var mockUserEmails = require('./data/user-emails');
+var mockPhotos = require('./data/photos');
 
 /*** Define the schemas ***/
 
-// Defines the schema for the `user` resource.
-// This schema will be shared across all HTTP methods (GET, POST, etc.)
-// and across multiple routes (e.g. /users/123, /users/123/friends/456, etc.)
 var userSchema = require('./schemas/user');
-
-// Defines the schema for a collection of users (i.e. an array of User resources).
 var userCollectionSchema = require('./schemas/user-collection');
+var photoSchema = require('./schemas/photo');
+var photoCollectionSchema = require('./schemas/photo-collection');
 
 /*** Set up a new router ***/
 
@@ -51,7 +49,7 @@ api.route('/users/:userId', userSchema, {
     // The API router will figure out which callbacks are necessary to satisfy the incoming request.
     get: [
         {
-            props: ['displayName', 'age', 'gender'],
+            props: ['displayName', 'age', 'gender', 'birthDate', 'city', 'country'],
             callback: getUserBasicInfo
         },
         {
@@ -61,21 +59,23 @@ api.route('/users/:userId', userSchema, {
     ],
     put: [
         {
-            props: ['displayName', 'age', 'gender'],
+            props: ['displayName', 'age', 'gender', 'birthDate', 'city', 'country'],
             callback: putUserBasicInfo
         },
         {
             props: ['email'],
             callback: putUserEmailInfo
         }
-    ]
+    ],
+    patch: function() {},
+    delete: function() {}
 });
 
 // Defines the route that manages a collection of users
 api.route('/users', userCollectionSchema, {
     get: [
         {
-            props: ['displayName', 'age', 'gender'],
+            props: ['displayName', 'age', 'gender', 'city', 'country'],
             callback: getUsersBasicInfo
         },
         {
@@ -86,6 +86,68 @@ api.route('/users', userCollectionSchema, {
     post: createUser
 });
 
+api.route('/users/:userId/photos', photoCollectionSchema, {
+    // Complex resources may need multiple callback handlers to support different properties.
+    // The API router will figure out which callbacks are necessary to satisfy the incoming request.
+    get: function(request) {
+        var userId = request.getParam('userId');
+        var photos = mockPhotos.filter(function(photo) {
+            return photo.userId === userId;
+        }).map(function(photo) {
+            return new Resource('/users/' + userId + '/photos/' + photo.photoId, photo, 86400);
+        });
+        if (!photos.length) {
+            return Promise.reject("Unable to find photos for user " + userId);
+        };
+        return photos;
+    },
+    post: function(request) {
+        var userId = request.getParam('userId');
+        var photoId = mockPhotos.length;
+        var photo = request.getResource();
+        photo.userId = userId;
+        photo.photoId = photoId;
+        photo.url = 'http://mysite.com/photos/photo-' + userId + '-' + photoId + '.png';
+        mockPhotos.push(photo);
+        return [new Resource('/users/' + userId + '/photos/' + photo.photoId, photo, 86400)];
+    }
+});
+
+api.route('/users/:userId/photos/:photoId', photoSchema, {
+    // Complex resources may need multiple callback handlers to support different properties.
+    // The API router will figure out which callbacks are necessary to satisfy the incoming request.
+    get: function(request) {
+        var userId = request.getParam('userId');
+        var photoId = request.getParam('photoId');
+        for (var i = 0, len = mockPhotos.length; i < len; i++) {
+            var photo = mockPhotos[i];
+            if (photo.photoId === photoId && photo.userId === userId) {
+                return new Resource('/users/' + userId + '/photos/' + photoId, photo, 86400);
+            }
+        }
+        return Promise.reject("Unable to find photo for user " + userId + " and photo id " + photoId);
+    },
+    put: function(request) {
+        var userId = request.getParam('userId');
+        var photoId = request.getParam('photoId');
+        var submittedPhoto = request.getResource();
+        var photo;
+        for (var i = 0, len = mockPhotos.length; i < len; i++) {
+            if (mockPhotos[i].photoId === photoId && mockPhotos[i].userId === userId) {
+                photo = mockPhotos[i];
+                break;
+            }
+        }
+        if (!photo) {
+            return Promise.reject("Unable to find photo for user " + userId + " and photo id " + photoId);
+        }
+        photo.caption = submittedPhoto.caption;
+        // mockPhotos[i] = photo;
+        return new Resource('/users/' + userId + '/photos/' + photo.photoId, photo, 86400);
+    },
+    delete: function() {},
+});
+
 /*** Define the callback functions ***/
 
 // Returns basic user info for a given user id
@@ -94,14 +156,12 @@ function getUserBasicInfo(request) {
     var userId = request.getParam('userId'); // ex: 123
 
     return new Promise(function(resolve, reject) {
-        setTimeout(function() {
-            for (var i = 0, len = mockUserBasicInfo.length; i < len; i++) {
-                if (mockUserBasicInfo[i].userId === userId) {
-                    return resolve(new Resource('/users/' + userId, mockUserBasicInfo[i], 3600));
-                }
+        for (var i = 0, len = mockUserBasicInfo.length; i < len; i++) {
+            if (mockUserBasicInfo[i].userId === userId) {
+                return resolve(new Resource('/users/' + userId, mockUserBasicInfo[i], 3600));
             }
-            reject('Unable to find basic info for user id ' + userId);
-        }, 100);
+        }
+        reject('Unable to find basic info for user id ' + userId);
     });
 }
 
@@ -111,37 +171,31 @@ function getUserEmailInfo(request) {
     var userId = request.getParam('userId'); // ex: 123
 
     return new Promise(function(resolve, reject) {
-        setTimeout(function() {
-            var index = userId - 1;
-            var userEmail = mockUserEmails[index];
-            if (userEmail) {
-                resolve(new Resource('/users/' + userId, userEmail, 3600));
-            } else {
-                reject('Unable to find email for user id ' + userId);
-            }
-        });
+        var index = userId - 1;
+        var userEmail = mockUserEmails[index];
+        if (userEmail) {
+            resolve(new Resource('/users/' + userId, userEmail, 3600));
+        } else {
+            reject('Unable to find email for user id ' + userId);
+        }
     });
 }
 
 // Returns basic info for a collection of users
 function getUsersBasicInfo(request) {
     return new Promise(function(resolve, reject) {
-        setTimeout(function() {
-            resolve(mockUserBasicInfo.map(function(info, i) {
-                return new Resource('/users/' + info.userId, info);
-            }));
-        }, 100);
+        resolve(mockUserBasicInfo.map(function(info, i) {
+            return new Resource('/users/' + info.userId, info);
+        }));
     });
 }
 
 // Returns email info for a collection of users
 function getUsersEmailInfo(request) {
     return new Promise(function(resolve, reject) {
-        setTimeout(function() {
-            resolve(mockUserEmails.map(function(info, i) {
-                return new Resource('/users/' + info.userId, info);
-            }));
-        }, 100);
+        resolve(mockUserEmails.map(function(info, i) {
+            return new Resource('/users/' + info.userId, info);
+        }));
     });
 }
 
@@ -151,24 +205,21 @@ function putUserBasicInfo(request) {
     var resource = request.getResource();
 
     return new Promise(function(resolve, reject) {
-        setTimeout(function() {
-            for (var i = 0, len = mockUserBasicInfo.length; i < len; i++) {
-                if (mockUserBasicInfo[i].userId === userId) {
-                    for (var k in resource) {
-                        mockUserBasicInfo[i][k] = resource[k];
-                    }
-                    return resolve(new Resource('/users/' + userId, mockUserBasicInfo[i], 3600));
+        for (var i = 0, len = mockUserBasicInfo.length; i < len; i++) {
+            if (mockUserBasicInfo[i].userId === userId) {
+                for (var k in resource) {
+                    mockUserBasicInfo[i][k] = resource[k];
                 }
+                return resolve(new Resource('/users/' + userId, mockUserBasicInfo[i], 3600));
             }
-            reject('Unable to find basic info for user id ' + userId);
-        }, 100);
+        }
+        reject('Unable to find basic info for user id ' + userId);
     });
 }
 
 function putUserEmailInfo(request) {
     var userId = request.getParam('userId');
     var resource = request.getResource();
-
     return new Resource('/users/' + userId, resource, 3600);
 }
 
@@ -184,11 +235,11 @@ app.use(api.middleware({
 }));
 
 api.on('api:success', function(data) {
-    console.log('Success!!', data.resource, data.duration);
+    console.log('Success!!', data.resourceId);
 });
 
 api.on('api:error', function(data) {
-    console.log('Error :(', data.resource, data.duration);
+    console.log('Error :(', data.resourceId);
 });
 
 // Create web server and listen on port 5150

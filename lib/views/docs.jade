@@ -1,0 +1,313 @@
+-
+    mockValue = function(details) {
+        if (details.hasOwnProperty('sample')) {
+            return JSON.stringify(details.sample);
+        }
+        switch (details.type) {
+            case 'string':
+                return '"FPO string"';
+
+            case 'integer':
+            case 'number':
+                var min = details.minimum;
+                var max = details.maximum;
+                return Math.ceil(Math.random() * ((max || 100) - min)) + min;
+
+            case 'boolean':
+                return 'true';
+
+            case 'array':
+                return '[/* array */]';
+
+            case 'null':
+                return 'null';
+
+            case 'object':
+                return '{ /* object */ }';
+
+            default:
+                return '/* details.type */';
+        }
+    }
+
+mixin props(properties)
+    ul.properties
+        each details, property in properties
+            -
+                meta = Object.keys(details).filter(function(key) {
+                    return -1 === ['description', 'type'].indexOf(key);
+                })
+
+            li.property
+                div
+                    span.name= property
+                    span.type(class="type-#{details.type}")= details.type
+                    if details.readOnly
+                        span.read-only(title="Read-only access") R
+                    else
+                        span.read-write(title="Read and write access") W
+
+                p.description= details.description
+
+                if details.type == 'object'
+                    +props(details.properties)
+
+                else if meta.length
+                    dl.meta
+                        each key in meta
+                            dt= key
+                            dd= details[key]
+
+mixin resource(pattern, schema, methods)
+    h2
+        = schema.title || pattern
+        span(class="type type-#{schema.type}")= schema.type
+
+    if schema.description
+        p= schema.description
+
+    if pattern
+        h3.pattern URL Pattern: <code>#{pattern}</code>
+
+    if methods && methods.length
+        h3.methods
+            | Methods:
+            each method in ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+                if -1 !== methods.indexOf(method)
+                    span.method(class="method-#{method.toLowerCase()}")= method
+
+    if schema.properties
+        h3 Properties:
+        +props(schema.properties)
+
+    if schema.items
+        h3 Items:
+        section.items
+            +resource(null, schema.items, null)
+
+doctype html
+html
+    head
+        title API Documentation
+
+    body
+        style.
+            body{
+                font-family: Arial;
+                font-size: 100%;
+                margin: 1rem 1.5rem;
+                padding: 0;
+                background: #eee;
+            }
+
+            header{
+                margin: -1rem -1.5rem 1.5rem;
+                background: #111;
+                padding: 1rem 1.5rem;
+                color: #fff;
+                box-shadow: 0 0 0.5rem 0.5rem rgba(0, 0, 0, 0.25);
+            }
+
+            h1, h2, h3, h4, h5, h6{
+                margin: 0.5em 0;
+                padding: 0;
+                font-weight: bold;
+            }
+
+            .resource{
+                margin: 1em 0;
+                padding: 0 1em 1em;
+                border: 1px solid #ccc;
+                box-shadow: 0 0.5rem 0.5rem -0.15rem rgba(0, 0, 0, 0.25);
+                border-radius: 0.15em;
+                background: #fcfcfc;
+            }
+
+            section.items{
+                margin: 1em;
+                padding: 0 1em;
+                border: 1px solid #ccc;
+                box-shadow: 0em 0.5em 0.5em -0.25em rgba(0, 0, 0, 0.15);
+                border-radius: 0.25em;
+            }
+
+            pre.response, pre.schema{
+                border: 1px solid #ccc;
+                background: #f7f8f9;
+                padding: 1em;
+                border-radius: 0.15em;
+            }
+
+            span.method{
+                display: inline-block;
+                margin: 0 0 0 0.5em;
+                padding: 0.25em 0.5em 0;
+                color: #fff;
+                font-weight: bold;
+                font-size: 0.85em;
+                border-radius: 0.35em;
+                border: 2px solid rgba(255, 255, 255, 0.75);
+                font-family: consolas, monaco, monospace;
+            }
+
+            .method-get{
+                background: #3a3;
+            }
+
+            .method-post{
+                background: #18b;
+            }
+
+            .method-patch{
+                background: #52c;
+            }
+
+            .method-put{
+                background: #c81;
+            }
+
+            .method-delete{
+                background: #b11;
+            }
+
+            .method-options{
+                background: #888;
+            }
+
+            .pattern code{
+                margin-right: 0.5em;
+                display: inline-block;
+                margin: 0 0.5em 0 0.5em;
+                padding: 0.2em 0.5em 0em;
+                color: #fff;
+                font-weight: bold;
+                font-size: 0.85em;
+                border-radius: 0.35em;
+                border: 2px solid rgba(255, 255, 255, 0.75);
+                font-family: consolas, monaco, monospace;
+                background: #444;
+                vertical-align: absbottom;
+            }
+
+            li.property{
+                margin: 0.5em 0;
+            }
+
+            dl.meta{
+                list-style-type: none;
+                margin: 0.5em 0 1.5em;
+                padding: 0.5em;
+                border: 1px solid #ccc;
+                background: #f7f8f9;
+                font-size: 0.85em;
+                border-radius: 0.15em;
+            }
+
+            dl.meta dt{
+                float: left;
+                width: 10em;
+                font-weight: bold;
+                margin: 0;
+                padding: 0.15em 0;
+            }
+
+            dl.meta dd{
+                margin: 0 0 0 10.5em;
+                padding: 0.15em 0;
+            }
+
+            span.name{
+                font-weight: bold;
+                font-size: 1.15em;
+                font-family: consolas, monaco, monospace;
+            }
+
+            span.type, span.read-only, span.read-write{
+                margin-right: 0.5em;
+                display: inline-block;
+                margin: 0 0.5em 0 0.5em;
+                padding: 0.2em 0.5em;
+                color: #fff;
+                font-weight: bold;
+                font-size: 0.85em;
+                border-radius: 0.35em;
+                border: 2px solid rgba(255, 255, 255, 0.75);
+                font-family: consolas, monaco, monospace;
+            }
+
+            span.read-only, span.read-write{
+                margin-left: 0;
+                border-radius: 1em;
+            }
+
+            span.read-only{
+                background: #b11;
+            }
+
+            span.read-write{
+                background: #3a3;
+            }
+
+
+            span.type-object{
+                background: #3a3;
+            }
+
+            span.type-array{
+                background: #18b;
+            }
+
+            span.type-string{
+                background: #52c;
+            }
+
+            span.type-integer{
+                background: #c81;
+            }
+
+            h2 span.type{
+                font-size: 0.75em;
+                vertical-align: top;
+            }
+
+            code{
+                font-family: consolas, monaco, monospace;
+            }
+
+        header
+            h1 API Documentation
+
+        h2 Resources
+
+        ul.index
+            each route in routes
+                li: a(href="##{route.pattern}")= route.schema.title || route.pattern
+
+        each route in routes
+            - pattern = route.pattern
+            - schema = route.schema
+            - methods = route.methods
+            .resource(id=route.pattern)
+                +resource(pattern, schema, methods)
+
+                h3.sample Sample Response:
+                pre.response
+                    if schema.properties
+                        = '{\n  '
+                        = Object.keys(schema.properties).map(function(key) { return '"' + key + '": ' + mockValue(schema.properties[key]); }).join(',\n  ')
+                        = '\n}'
+
+                    if schema.items
+                        = '['
+                        each i in [1, 2, 3]
+                            = '\n  {\n    '
+                            = Object.keys(schema.items.properties).map(function(key) { return '"' + key + '": ' + mockValue(schema.items.properties[key]); }).join(',\n    ')
+                            = '\n  }'
+                            if i != 3
+                                = ','
+                        = '\n]'
+
+                //- h3 Schema:
+                //- pre.schema= JSON.stringify(schema, null, 2)
+
+                div: a(href="#") Back to Top
