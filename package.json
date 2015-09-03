@@ -9,7 +9,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "http://github.com/tagged/npm-seed.git"
+    "url": "https://github.com/ifwe/monocle-api.git"
   },
   "keywords": [
     "api",
@@ -19,9 +19,9 @@
   "author": "Web Team Awesome",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/tagged/npm-seed/issues"
+    "url": "https://github.com/ifwe/monocle-api/issues"
   },
-  "homepage": "https://github.com/tagged/npm-seed",
+  "homepage": "https://github.com/ifwe/monocle-api",
   "devDependencies": {
     "blanket": "1.1.6",
     "chai": "1.9.1",
