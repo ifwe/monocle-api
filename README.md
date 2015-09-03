@@ -1,7 +1,7 @@
-API Router Connect
-==================
+Monocle API Router for Connect
+==============================
 
-A configuration-driven API router that exposes middleware for Connect to easily add to any Connect/Express server.
+Monocle is a an API router that focuses on consistency, flexibility and performance.
 
 ## Features
 
@@ -18,129 +18,171 @@ API Router uses [JSON Schema](http://json-schema.org/) to configure and validate
 ```js
 var connect = require('connect');
 var app = connect();
+var Promise = require('bluebird');
 
+// Allow parsing of JSON-encoded request body
 var bodyParser = require('body-parser');
-app.use(bodyParser.urlencoded({
-    extended: false
-}));
+app.use(bodyParser.json());
 
 // Create an API Router instance
-var ApiRouter = require('api-router-connect');
-var api = new ApiRouter();
+var Monocle = require('../lib');
+var api = new Monocle();
+
+// For this simple demo we'll set up a simple in-memory data store for the user resource.
+var user = {
+    displayName: 'Alice',
+    age: 27,
+    gender: 'F'
+};
 
 // Configure your first API route
-api.get('/users/:userId', {
-    type: 'object',
-    properties: {
-        userId: { type: 'integer' },
-        displayName: { type: 'string' },
-        age: { type: 'integer' },
-        gender: { type: 'string' }
-    }
-}, function(params, req) {
-    // params ex: { userId: '12345'}
-    // req is the HTTP request object
-    // return the data or a promise that resolves with the data
-});
+api.route(
+    // Define the URL pattern for this resource
+    '/user',
 
-// Other properties for the same resource can be defined in separate handlers
-api.get('/users/:userId', {
-    type: 'object',
-    properties: {
-        userId: { type: 'integer' },
-        email: { type: 'string' }
+    // Define the schema for this resource. The schema will be shared across the supported HTTP methods.
+    {
+        type: 'object',
+        properties: {
+            displayName: { type: 'string' },
+            age: { type: 'integer' },
+            gender: { type: 'string' }
+        }
+    },
+
+    // Define the HTTP methods that are supported by this url.
+    {
+        // Handle GET requests for this resource
+        get: function(request) {
+            return new Promise(function(resolve, reject) {
+                if (!user) {
+                    return reject("No user found.");
+                }
+
+                // Resolve promise with the user object and it will be converted to JSON automatically
+                resolve(user);
+            });
+        },
+
+        // Handle PUT requests for this resource
+        put: function(request) {
+            return new Promise(function(resolve, reject) {
+                // Replace entire user object with provided resource, which is automatically JSON-decoded
+                user = request.getResource();
+
+                // Resolve promise with the updated user object
+                resolve(user);
+            });
+        }
     }
-}, function(params, req) {
-    // return object with `email` property or a promise
-});
+);
 
 // Add the API middleware to your connect app
-app.use(api.middleware({
-    basePath: '/'       // Optionally set a base path for all API routes
-}));
+app.use(api.middleware());
 
 // Create web server and listen on port 5150
 var http = require('http');
 http.createServer(app).listen(5150, function() {
-    console.log("API Router listening on port 5150");
+    console.log("Monocle API is now listening on port 5150");
 });
 ```
 
-With your server set up, you can now make RESTful API calls, with support for enhanced features like specifying the properties you want back:
+Monocle API supports RESTful API calls:
 
 ```bash
-$ curl -i http://127.0.0.1:5150/my-api/users/1?props=userId,displayName,age
+$ curl -i http://127.0.0.1:5150/user
 HTTP/1.1 200 OK
 Content-Type: application/json
-X-Response-Time: 1.424ms
 Date: Thu, 13 Aug 2015 17:50:29 GMT
 Connection: keep-alive
 Transfer-Encoding: chunked
 
 {
-  "userId": 1,
+  "displayName": "Alice",
+  "age": 27,
+  "gender": "F"
+}
+
+$ curl -X PUT -d '{"displayName": "Joe", "age": 42, "gender": "M"}' -i http://127.0.0.1:5150/user
+HTTP/1.1 200 OK
+Content-Type: application/json
+Date: Thu, 13 Aug 2015 17:50:29 GMT
+Connection: keep-alive
+Transfer-Encoding: chunked
+
+{
+  "displayName": "Joe",
+  "age": 42,
+  "gender": "M"
+}
+
+$ curl -X POST -i http://127.0.0.1:5150/user
+HTTP/1.1 404 Not Found
+Content-Type: application/json
+Date: Thu, 03 Sep 2015 18:28:10 GMT
+Connection: keep-alive
+Transfer-Encoding: chunked
+
+{
+  "error": "Not found",
+  "exception": {
+    "error": "No POST handler for /user"
+  }
+}
+
+```
+
+In addition, Monocle APIs provided flexibility by allowing the client to decide how much data to get back:
+
+```bash
+$ curl -i http://127.0.0.1:5150/user?props=displayName,age
+HTTP/1.1 200 OK
+Content-Type: application/json
+Date: Thu, 13 Aug 2015 17:50:29 GMT
+Connection: keep-alive
+Transfer-Encoding: chunked
+
+{
   "displayName": "Alice",
   "age": 27
 }
+```
 
-$ curl -i http://127.0.0.1:5150/my-api/users/1?props=userId,displayName,age,email
+View the details of any endoint by making an OPTIONS request.
+
+$ curl -X OPTIONS http://127.0.0.1:5150/user
 HTTP/1.1 200 OK
 Content-Type: application/json
-X-Response-Time: 1.768ms
-Date: Thu, 13 Aug 2015 17:50:45 GMT
-Connection: keep-alive
-Transfer-Encoding: chunked
-
-{
-  "userId": 1,
-  "displayName": "Alice",
-  "age": 27,
-  "email": "alice@example.com"
-}
-
-$ curl -i http://127.0.0.1:5150/my-api/users/500?props=userId,displayName,age
-HTTP/1.1 404 Not Found
-Content-Type: application/json
-X-Response-Time: 1.590ms
-Date: Thu, 13 Aug 2015 17:54:11 GMT
-Connection: keep-alive
-Transfer-Encoding: chunked
-
-{
-  "error": "Unable to find basic info for user id 500"
-}
-
-$ curl -i http://127.0.0.1:5150/my-api/users/1?schema
-HTTP/1.1 200 OK
-Content-Type: application/json
-X-Response-Time: 0.169ms
 Date: Thu, 13 Aug 2015 20:47:46 GMT
 Connection: keep-alive
 Transfer-Encoding: chunked
 
 {
-  "type": "object",
-  "properties": {
-    "userId": {
-      "type": "integer"
-    },
-    "displayName": {
-      "type": "string"
-    },
-    "age": {
-      "type": "integer"
-    },
-    "gender": {
-      "type": "string"
-    },
-    "email": {
-      "type": "string"
+  "pattern": "/user",
+  "methods": [
+    "GET",
+    "PUT",
+    "OPTIONS"
+  ],
+  "schema": {
+    "type": "object",
+    "properties": {
+      "displayName": {
+        "type": "string"
+      },
+      "age": {
+        "type": "integer"
+      },
+      "gender": {
+        "type": "string"
+      }
     }
   }
 }
+
 ```
 
-See the demo for advanced usage.
+See `demo/index.js` for advanced usage.
 
 ## Files and Directory Structure
 
