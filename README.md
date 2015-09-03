@@ -150,6 +150,7 @@ Transfer-Encoding: chunked
 
 View the details of any endoint by making an OPTIONS request.
 
+```bash
 $ curl -X OPTIONS http://127.0.0.1:5150/user
 HTTP/1.1 200 OK
 Content-Type: application/json
@@ -179,7 +180,6 @@ Transfer-Encoding: chunked
     }
   }
 }
-
 ```
 
 See `demo/index.js` for advanced usage.
