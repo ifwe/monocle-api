@@ -1,7 +1,7 @@
 {
-  "name": "tagged-npm-seed",
+  "name": "monocle-api",
   "version": "0.0.0",
-  "description": "Tagged's seed project for NPM packages",
+  "description": "API router focused on consistency, flexibility, and performance.",
   "main": "lib/index.js",
   "scripts": {
     "test": "grunt test",
