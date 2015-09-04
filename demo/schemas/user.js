@@ -45,6 +45,12 @@ module.exports = {
             type: 'string',
             sample: 'San Francisco'
         },
+        location: {
+            type: 'string',
+            description: 'A human-readable location, ready for presentation.',
+            readOnly: true,
+            sample: 'San Francisco, CA'
+        },
         country: {
             description: '2-character country code that user lives in.',
             type: 'string',

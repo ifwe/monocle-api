@@ -154,7 +154,58 @@ describe('API Router', function() {
         });
     });
 
-    describe('OPTIONS /', function() {
+    describe('method DELETE', function() {
+        beforeEach(function() {
+            this.router = new Router();
+            this.router.route('/foo', {
+                type: 'object',
+                properties: {
+                    anything: { type: 'string' }
+                }
+            }, {
+                delete: function(request) {
+                    return 'ok'; // does not validate with resource schema, which is OK.
+                }
+            });
+        });
+
+        it('ignores provided schema for response entity', function(done) {
+            this.router.delete('/foo')
+            .then(function(result) {
+                result.should.be.ok;
+                done();
+            })
+            .catch(done);
+        });
+    });
+
+    describe('custom HTTP status response', function() {
+        beforeEach(function() {
+            this.router = new Router();
+            this.router.route('/foo', {
+                type: 'array',
+                items: {
+                    anything: { type: 'string' }
+                }
+            }, {
+                post: function(request) {
+                    return this.status(201);
+                }
+            });
+        });
+
+        it('provide status as httpStatus property', function(done) {
+            this.router.post('/foo')
+            .then(function(result) {
+                result.should.be.ok;
+                result.$httpStatus.should.equal(201);
+                done();
+            })
+            .catch(done);
+        });
+    });
+
+    describe('method OPTIONS /', function() {
         beforeEach(function() {
             var noop = function() {};
             this.router = new Router();
@@ -185,14 +236,8 @@ describe('API Router', function() {
             .route('/foo', this.fooSchema, { get: noop })
             .route('/bar', this.barSchema, { get: noop, post: noop })
             .route('/baz', this.bazSchema, { get: [
-                {
-                    props: ['baz'],
-                    callback: noop
-                },
-                {
-                    props: ['bat'],
-                    callback: noop
-                }
+                { props: ['baz'], callback: noop },
+                { props: ['bat'], callback: noop }
             ]});
         });
 
@@ -202,35 +247,47 @@ describe('API Router', function() {
                 result.should.be.an('array');
                 result.should.have.lengthOf(3); // three routes were defined
 
-                result[0].should.have.property('pattern', '/foo');
-                result[0].should.have.property('schema', this.fooSchema);
-                result[0].should.have.property('methods');
-                result[0].methods.should.contain('GET');
-                result[0].methods.should.contain('OPTIONS');
-                result[0].methods.should.not.contain('POST');
-                result[0].methods.should.not.contain('PUT');
-                result[0].methods.should.not.contain('PATCH');
-                result[0].methods.should.not.contain('DELETE');
+                result.forEach(function(data) {
+                    switch (data.pattern) {
+                        case '/foo':
+                            data.should.have.property('schema', this.fooSchema);
+                            data.should.have.property('methods');
+                            data.methods.should.contain('GET');
+                            data.methods.should.contain('OPTIONS');
+                            data.methods.should.not.contain('POST');
+                            data.methods.should.not.contain('PUT');
+                            data.methods.should.not.contain('PATCH');
+                            data.methods.should.not.contain('DELETE');
+                            break;
+    
+                        case '/bar':
+                            data.should.have.property('schema', this.barSchema);
+                            data.should.have.property('methods');
+                            data.methods.should.contain('GET');
+                            data.methods.should.contain('OPTIONS');
+                            data.methods.should.contain('POST');
+                            data.methods.should.not.contain('PUT');
+                            data.methods.should.not.contain('PATCH');
+                            data.methods.should.not.contain('DELETE');
+                            break;
 
-                result[1].should.have.property('pattern', '/bar');
-                result[1].should.have.property('schema', this.barSchema);
-                result[1].should.have.property('methods');
-                result[1].methods.should.contain('GET');
-                result[1].methods.should.contain('OPTIONS');
-                result[1].methods.should.contain('POST');
-                result[1].methods.should.not.contain('PUT');
-                result[1].methods.should.not.contain('PATCH');
-                result[1].methods.should.not.contain('DELETE');
+                        case '/baz':
+                            data.should.have.property('pattern', '/baz');
+                            data.should.have.property('schema', this.bazSchema);
+                            data.should.have.property('methods');
+                            data.methods.should.contain('GET');
+                            data.methods.should.contain('OPTIONS');
+                            data.methods.should.not.contain('POST');
+                            data.methods.should.not.contain('PUT');
+                            data.methods.should.not.contain('PATCH');
+                            data.methods.should.not.contain('DELETE');
+                            break;
 
-                result[2].should.have.property('pattern', '/baz');
-                result[2].should.have.property('schema', this.bazSchema);
-                result[2].should.have.property('methods');
-                result[2].methods.should.contain('GET');
-                result[2].methods.should.contain('OPTIONS');
-                result[2].methods.should.not.contain('POST');
-                result[2].methods.should.not.contain('PUT');
-                result[2].methods.should.not.contain('PATCH');
-                result[2].methods.should.not.contain('DELETE');
+                        default:
+                            throw new Error("Unexpected pattern " + data.pattern);
+                    }
+                });
+
                 done();
             }.bind(this))
             .catch(done);
@@ -516,6 +573,64 @@ describe('API Router', function() {
 
                     // TODO: Determine standard model for error objects
                     obj.should.have.property('error');
+                    done();
+                }.bind(this));
+                this.middleware(this.req, this.res, this.next);
+            });
+        });
+
+        describe('custom HTTP status response', function() {
+            beforeEach(function() {
+                this.router = new Router();
+                this.router.route('/foo', {
+                    type: 'array',
+                    items: {
+                        anything: { type: 'string' }
+                    }
+                }, {
+                    post: function(request) {
+                        return this.status(201);
+                    }
+                });
+                this.middleware = this.router.middleware();
+                this.req.method = 'POST';
+                this.req.url = '/foo';
+            });
+
+            it('provide status as httpStatus property', function(done) {
+                this.res.end = sinon.spy(function() {
+                    this.res.should.have.property('statusCode', 201);
+                    done();
+                }.bind(this));
+                this.middleware(this.req, this.res, this.next);
+            });
+        });
+
+        describe('custom HTTP status response with body', function() {
+            beforeEach(function() {
+                this.router = new Router();
+                this.router.route('/foo', {
+                    type: 'array',
+                    items: {
+                        anything: { type: 'string' }
+                    }
+                }, {
+                    post: function(request) {
+                        return this.status(201, {
+                            anything: 'canary'
+                        });
+                    }
+                });
+                this.middleware = this.router.middleware();
+                this.req.method = 'POST';
+                this.req.url = '/foo';
+            });
+
+            it('provide status as httpStatus property', function(done) {
+                this.res.end = sinon.spy(function() {
+                    this.res.should.have.property('statusCode', 201);
+                    var obj = JSON.parse(this.res.end.lastCall.args[0]);
+                    obj.should.have.property('anything', 'canary');
                     done();
                 }.bind(this));
                 this.middleware(this.req, this.res, this.next);
