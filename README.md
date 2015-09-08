@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/ifwe/monocle-api.png)](https://travis-ci.org/ifwe/monocle-api)
+
 Monocle API Router for Connect
 ==============================
 
