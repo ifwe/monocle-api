@@ -154,6 +154,140 @@ describe('API Router', function() {
         });
     });
 
+    describe.skip('filters', function() {
+        beforeEach(function() {
+            this.router = new Router();
+
+            this.filterA = sinon.spy(function(input) {
+                return input + ' A';
+            });
+
+            this.filterB = sinon.spy(function(input) {
+                return input + ' B';
+            });
+
+            this.filterC = sinon.spy(function(input) {
+                return input + ' C';
+            });
+
+            this.filterAsync = sinon.spy(function(input) {
+                return new Promise(function(resolve, reject) {
+                    setTimeout(function() {
+                        resolve(input + ' ASYNC');
+                    });
+                });
+            });
+
+            this.router.filter('filterA', this.filterA);
+            this.router.filter('filterB', this.filterB);
+            this.router.filter('filterC', this.filterC);
+            this.router.filter('filterAsync', this.filterAsync);
+        });
+
+        it('invokes filter on input param', function(done) {
+            this.router.route('/example/:foo/:bar/:baz', {
+                type: 'object',
+                properties: {
+                    foo: {
+                        type: 'string',
+                        filters: 'filterA'
+                    }
+                }
+            }, {
+                get: function(request) {
+                    return {
+                        foo: request.getParam('foo')
+                    }
+                }
+            });
+            this.router.get('/example/foo/bar/baz')
+            .then(function(result) {
+                console.log('result', result);
+                result.should.have.property('foo', 'foo A');
+                this.filterA.called.should.be.true;
+                this.filterB.called.should.be.false;
+                this.filterC.called.should.be.false;
+                done();
+            }.bind(this))
+            .catch(done);
+        });
+
+        it('invokes each filter on input params in FIFO order', function(done) {
+            this.router.route('/example/:foo/:bar/:baz', {
+                type: 'object',
+                properties: {
+                    foo: {
+                        type: 'string',
+                        filters: ['filterA', 'filterB', 'filterC']
+                    }
+                }
+            }, {
+                get: function(request) {
+                    return {
+                        foo: request.getParam('foo')
+                    }
+                }
+            });
+            this.router.get('/example/foo/bar/baz')
+            .then(function(result) {
+                result.should.have.property('foo', 'foo A B C');
+                done();
+            })
+            .catch(done);
+        });
+
+        it('rejects if filter is undefined', function(done) {
+            this.router.route('/example/:foo/:bar/:baz', {
+                type: 'object',
+                properties: {
+                    foo: {
+                        type: 'string',
+                        filters: ['unknownFilter']
+                    }
+                }
+            }, {
+                get: function(request) {
+                    return {
+                        foo: request.getParam('foo')
+                    }
+                }
+            });
+            this.router.get('/example/foo/bar/baz')
+            .then(function(result) {
+                done('did not expect promise to resolve because `unknownFilter` is invalid');
+            })
+            .catch(function(error) {
+                error.should.be.ok;
+                error.error.should.contain("unknownFilter");
+                done();
+            });
+        });
+
+        it('supports async filters if filter returns a promise', function(done) {
+            this.router.route('/example/:foo/:bar/:baz', {
+                type: 'object',
+                properties: {
+                    foo: {
+                        type: 'string',
+                        filters: ['filterA', 'filterAsync', 'filterB']
+                    }
+                }
+            }, {
+                get: function(request) {
+                    return {
+                        foo: request.getParam('foo')
+                    }
+                }
+            });
+            this.router.get('/example/foo/bar/baz')
+            // .then(function(result) {
+            //     result.should.have.property('foo', 'foo A ASYNC B');
+            //     done();
+            // })
+            // .catch(done);
+        });
+    });
+
     describe('method DELETE', function() {
         beforeEach(function() {
             this.router = new Router();
@@ -259,7 +393,7 @@ describe('API Router', function() {
                             data.methods.should.not.contain('PATCH');
                             data.methods.should.not.contain('DELETE');
                             break;
-    
+
                         case '/bar':
                             data.should.have.property('schema', this.barSchema);
                             data.should.have.property('methods');
