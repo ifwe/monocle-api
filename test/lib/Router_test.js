@@ -100,7 +100,7 @@ describe('API Router', function() {
         });
 
         describe('with collection', function() {
-            it('merges collection of resources', function(done) {
+            it('merges collection of resources', function() {
                 this.foosSchema = {
                     $schema: 'http://json-schema.org/draft-04/schema#',
                     type: 'array',
@@ -112,6 +112,7 @@ describe('API Router', function() {
                         }
                     }
                 };
+
                 this.router.route('/foos', this.foosSchema, {
                     get: [
                         {
@@ -141,15 +142,16 @@ describe('API Router', function() {
                     ]
                 });
 
-                this.router.get('/foos')
+                return this.router.get('/foos')
                 .then(function(foos) {
-
-                }.bind(this))
-                .catch(function(error) {
-                    // console.log(JSON.stringify(error, null, 2));
-                    throw new Error(error);
-                })
-                .finally(done);
+                    foos.should.have.lengthOf(3);
+                    foos[0].should.have.property('bar', 'bar 1');
+                    foos[0].should.have.property('baz', 'baz 1');
+                    foos[1].should.have.property('bar', 'bar 2');
+                    foos[1].should.have.property('baz', 'baz 2');
+                    foos[2].should.have.property('bar', 'bar 3');
+                    foos[2].should.have.property('baz', 'baz 3');
+                });
             });
         });
     });
@@ -280,11 +282,11 @@ describe('API Router', function() {
                 }
             });
             this.router.get('/example/foo/bar/baz')
-            // .then(function(result) {
-            //     result.should.have.property('foo', 'foo A ASYNC B');
-            //     done();
-            // })
-            // .catch(done);
+            .then(function(result) {
+                result.should.have.property('foo', 'foo A ASYNC B');
+                done();
+            })
+            .catch(done);
         });
     });
 
@@ -303,13 +305,11 @@ describe('API Router', function() {
             });
         });
 
-        it('ignores provided schema for response entity', function(done) {
-            this.router.delete('/foo')
+        it('ignores provided schema for response entity', function() {
+            return this.router.delete('/foo')
             .then(function(result) {
                 result.should.be.ok;
-                done();
-            })
-            .catch(done);
+            });
         });
     });
 
@@ -328,14 +328,12 @@ describe('API Router', function() {
             });
         });
 
-        it('provide status as httpStatus property', function(done) {
-            this.router.post('/foo')
+        it('provide status as httpStatus property', function() {
+            return this.router.post('/foo')
             .then(function(result) {
                 result.should.be.ok;
                 result.$httpStatus.should.equal(201);
-                done();
-            })
-            .catch(done);
+            });
         });
     });
 
@@ -368,15 +366,15 @@ describe('API Router', function() {
 
             this.router
             .route('/foo', this.fooSchema, { get: noop })
-            .route('/bar', this.barSchema, { get: noop, post: noop })
+            .route('/bar', this.barSchema, { post: noop, get: noop, patch: noop, delete: noop, put: noop })
             .route('/baz', this.bazSchema, { get: [
                 { props: ['baz'], callback: noop },
                 { props: ['bat'], callback: noop }
             ]});
         });
 
-        it('returns details about all routes', function(done) {
-            this.router.options('/')
+        it('returns details about all routes', function() {
+            return this.router.options('/')
             .then(function(result) {
                 result.should.be.an('array');
                 result.should.have.lengthOf(3); // three routes were defined
@@ -400,9 +398,9 @@ describe('API Router', function() {
                             data.methods.should.contain('GET');
                             data.methods.should.contain('OPTIONS');
                             data.methods.should.contain('POST');
-                            data.methods.should.not.contain('PUT');
-                            data.methods.should.not.contain('PATCH');
-                            data.methods.should.not.contain('DELETE');
+                            data.methods.should.contain('PUT');
+                            data.methods.should.contain('PATCH');
+                            data.methods.should.contain('DELETE');
                             break;
 
                         case '/baz':
@@ -421,10 +419,25 @@ describe('API Router', function() {
                             throw new Error("Unexpected pattern " + data.pattern);
                     }
                 });
+            }.bind(this));
+        });
 
-                done();
-            }.bind(this))
-            .catch(done);
+        it('sorts methods humanly', function() {
+            return this.router.options('/')
+            .then(function(result) {
+                result.should.be.an('array');
+                result.should.have.lengthOf(3); // three routes were defined
+
+                var bar = result.filter(function(data) {
+                    return data.pattern == '/bar';
+                })[0];
+                bar.methods[0].should.equal('GET');
+                bar.methods[1].should.equal('POST');
+                bar.methods[2].should.equal('PUT');
+                bar.methods[3].should.equal('PATCH');
+                bar.methods[4].should.equal('DELETE');
+                bar.methods[5].should.equal('OPTIONS');
+            });
         });
     });
 
