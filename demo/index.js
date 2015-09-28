@@ -246,4 +246,5 @@ api.on('api:error', function(data) {
 var http = require('http');
 http.createServer(app).listen(5150, function() {
     console.log("API Router Demo listening on port 5150");
+    console.log("View documentation: http://localhost:5150/my-api");
 });
