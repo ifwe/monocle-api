@@ -17,6 +17,11 @@ var user = {
     gender: 'F'
 };
 
+var profilePhoto = {
+    url: 'http://photo.url',
+    caption: 'Awesome photo.'
+};
+
 // Configure your first API route
 api.route(
     // Define the URL pattern for this resource
@@ -35,12 +40,11 @@ api.route(
     // Define the HTTP methods that are supported by this url.
     {
         // Handle GET requests for this resource
-        get: function(request) {
+        get: function(request, connection) {
             return new Promise(function(resolve, reject) {
                 if (!user) {
                     return reject("No user found.");
                 }
-
                 // Resolve promise with the user object and it will be converted to JSON automatically
                 resolve(user);
             });
@@ -54,6 +58,35 @@ api.route(
 
                 // Resolve promise with the updated user object
                 resolve(user);
+            });
+        }
+    }
+);
+
+api.route(
+    '/user/profile-photo',
+    {
+        type: 'object',
+        properties: {
+            url: { type: 'string' },
+            caption: { type: 'string' }
+        }
+    },
+    {
+        get: function(request, connection) {
+            return new Promise(function(resolve, reject) {
+                // Demo: Making a call to another endpoint within a handler
+                connection.get('/user').then(function(user) {
+                    if (!user) {
+                        return reject("No user found.");
+                    }
+
+                    if (!profilePhoto) {
+                        return reject("No profile photo found.");
+                    }
+
+                    resolve(profilePhoto);
+                });
             });
         }
     }
