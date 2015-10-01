@@ -1,5 +1,5 @@
-How to publish an update to an npm package
-==========================================
+How to publish an update to npm
+===============================
 
 1. Create an account at https://www.npmjs.com
 2. From the console, run `npm login`, and log in using your new account.
