@@ -597,6 +597,23 @@ describe('API Router', function() {
         beforeEach(function() {
             this.router = new Router();
 
+            this.fooGetSpy = sinon.spy(function() {
+                return {
+                    bar: 'test_bar'
+                };
+            });
+            this.fooPostSpy = sinon.spy(function(request) {
+                return request.getResource();
+            });
+            this.derpGetSpy = sinon.spy(function() {
+                return {
+                    flerp: 'test_flerp'
+                };
+            });
+            this.derpPostSpy = sinon.spy(function(request) {
+                return request.getResource();
+            });
+
             // Configure router
             this.router.route('/foo', {
                 type: 'object',
@@ -604,11 +621,8 @@ describe('API Router', function() {
                     bar: { type: 'string' }
                 }
             }, {
-                get: function(request, connection) {
-                    return {
-                        bar: 'test_bar'
-                    };
-                }
+                get: this.fooGetSpy,
+                post: this.fooPostSpy
             });
 
             this.router.route('/derp', {
@@ -617,11 +631,8 @@ describe('API Router', function() {
                     flerp: { type: 'string' }
                 }
             }, {
-                get: function(request, connection) {
-                    return {
-                        flerp: 'test_flerp'
-                    };
-                }
+                get: this.derpGetSpy,
+                post: this.derpPostSpy
             });
 
             // Stub request
@@ -852,13 +863,13 @@ describe('API Router', function() {
             });
 
             it('responds with available methods', function(done) {
-                this.res.end = sinon.spy(function() {
+                this.res.end = sinon.spy(function(response) {
                     this.res.end.lastCall.args[0].should.be.ok;
                     var obj = JSON.parse(this.res.end.lastCall.args[0]);
                     obj.should.have.property('methods');
                     obj.methods.should.contain('GET');
                     obj.methods.should.contain('OPTIONS');
-                    obj.methods.should.not.contain('POST');
+                    obj.methods.should.contain('POST');
                     obj.methods.should.not.contain('PUT');
                     obj.methods.should.not.contain('PATCH');
                     obj.methods.should.not.contain('DELETE');
@@ -880,6 +891,140 @@ describe('API Router', function() {
                 this.req.url = '/foo?props=bar';
                 this.middleware(this.req, this.res, this.next);
                 this.next.called.should.be.true;
+            });
+        });
+
+        describe('POST to batch endpoint', function() {
+            beforeEach(function() {
+                this.middleware = this.router.middleware({
+                    basePath: '/my-api'
+                });
+            });
+
+            it('processes each batched GET request', function(done) {
+                this.req.method ='POST';
+                this.req.url = '/my-api/_batch';
+                this.req.body = [
+                    {
+                        method: 'GET',
+                        url: '/foo'
+                    },
+                    {
+                        method: 'GET',
+                        url: '/derp'
+                    }
+                ];
+
+                this.res.end = function(response) {
+                    var results = JSON.parse(response);
+                    results.should.have.lengthOf(2);
+
+                    results[0].should.have.property('status', 200);
+                    results[0].should.have.property('body');
+                    results[0].body.should.contain({ bar: 'test_bar' });
+
+                    results[1].should.have.property('status', 200);
+                    results[1].should.have.property('body');
+                    results[1].body.should.contain({ flerp: 'test_flerp' });
+
+                    done();
+                }.bind(this);
+
+                this.middleware(this.req, this.res, this.next);
+            });
+
+            it('processes each batched POST request', function(done) {
+                this.req.method ='POST';
+                this.req.url = '/my-api/_batch';
+                this.req.body = [
+                    {
+                        method: 'POST',
+                        url: '/foo',
+                        body: { bar: 'updated_bar' }
+                    },
+                    {
+                        method: 'POST',
+                        url: '/derp',
+                        body: { flerp: 'updated_flerp' }
+                    }
+                ];
+
+                this.res.end = function(response) {
+                    var results = JSON.parse(response);
+                    results.should.have.lengthOf(2);
+
+                    results[0].should.have.property('status', 200);
+                    results[0].should.have.property('body');
+                    results[0].body.should.contain({ bar: 'updated_bar' });
+
+                    results[1].should.have.property('status', 200);
+                    results[1].should.have.property('body');
+                    results[1].body.should.contain({ flerp: 'updated_flerp' });
+
+                    done();
+                }.bind(this);
+
+                this.middleware(this.req, this.res, this.next);
+            });
+
+            it('processes mixed batched requests', function(done) {
+                this.req.method ='POST';
+                this.req.url = '/my-api/_batch';
+                this.req.body = [
+                    {
+                        method: 'GET',
+                        url: '/foo',
+                        body: { bar: 'updated_bar' }
+                    },
+                    {
+                        method: 'POST',
+                        url: '/derp',
+                        body: { flerp: 'updated_flerp' }
+                    }
+                ];
+
+                this.res.end = function(response) {
+                    this.fooGetSpy.called.should.be.true;
+                    this.fooPostSpy.called.should.be.false;
+                    this.derpGetSpy.called.should.be.false;
+                    this.derpPostSpy.called.should.be.true;
+                    done();
+                }.bind(this);
+
+                this.middleware(this.req, this.res, this.next);
+            });
+
+            it('passes query to appropriate request', function(done) {
+                this.req.method ='POST';
+                this.req.url = '/my-api/_batch';
+                this.req.body = [
+                    {
+                        method: 'GET',
+                        url: '/foo?test1=canary%20foo'
+                    },
+                    {
+                        method: 'GET',
+                        url: '/derp?test2=canary%20derp'
+                    }
+                ];
+
+                this.res.end = function(response) {
+                    this.fooGetSpy.called.should.be.true;
+                    var fooRequest = this.fooGetSpy.lastCall.args[0];
+                    fooRequest.getUrl().query.should.contain({
+                        test1: 'canary foo'
+                    });
+
+                    this.derpGetSpy.called.should.be.true;
+                    var derpRequest = this.derpGetSpy.lastCall.args[0];
+                    derpRequest.getUrl().query.should.contain({
+                        test2: 'canary derp'
+                    });
+
+                    done();
+                }.bind(this);
+
+                this.middleware(this.req, this.res, this.next);
             });
         });
     });
