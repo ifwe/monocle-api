@@ -2,6 +2,7 @@ var Router = require('../../lib/Router');
 var Request = require('../../lib/Request');
 var Resource = require('../../lib/Resource');
 var Connection = require('../../lib/Connection');
+var Symlink = require('../../lib/Symlink');
 var Promise = require('bluebird');
 
 describe('API Router', function() {
@@ -346,6 +347,51 @@ describe('API Router', function() {
                 console.log(result);
                 result.should.be.ok;
                 result.$httpStatus.should.equal(201);
+            });
+        });
+    });
+
+    describe('symlinks', function() {
+        beforeEach(function() {
+            this.router = new Router();
+            this.router.route('/foo', {
+                type: 'object',
+                properties: {
+                    bar: { type: 'symlink' },
+                    derp: { type: 'string' }
+                }
+            }, {
+                get: function(request) {
+                    return {
+                        bar: new Symlink('/bar'),
+                        derp: 'test derp'
+                    }
+                }
+            });
+
+            this.router.route('/bar', {
+                type: 'object',
+                properties: {
+                    baz: { type: 'string' }
+                }
+            }, {
+                get: function(request) {
+                    return {
+                        baz: 'test baz'
+                    }
+                }
+            });
+
+            this.connection = new Connection(this.router, {}, {});
+        });
+
+        it('resolves value', function() {
+            return this.connection.get('/foo', {
+                props: ['bar']
+            })
+            .then(function(result) {
+                result.should.have.property('bar');
+                result.bar.should.have.property('baz', 'test baz');
             });
         });
     });
