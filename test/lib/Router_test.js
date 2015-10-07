@@ -738,26 +738,37 @@ describe('API Router', function() {
                 this.middleware(this.req, this.res, this.next);
             });
 
-            it('responds with HTTP status code of 500 when unable to generate JSON', function(done) {
-                this.router.route('/bad-resource', {
-                    type: 'object',
-                    properties: {
-                        bar: { type: 'object' }
-                    }
-                }, {
-                    get: function(params, req) {
-                        // Create a bad object
-                        var result = {};
-                        result.bar = result; // circular reference cannot be JSONified
-                        return result;
-                    }
+            describe('unserializable result', function() {
+                beforeEach(function() {
+                    this.badResource = { bar: 'test bar' };
+                    // Force serialization to fail
+                    sinon.stub(JSON, 'stringify')
+                    .returns('{}') // return plain JSON by defailt
+                    .withArgs(this.badResource, null, 2).throws(new Error("Unable to serialize object"));
                 });
-                this.req.url = '/bad-resource?props=bar'
-                this.res.end = sinon.spy(function() {
-                    this.res.should.have.property('statusCode', 500);
-                    done();
-                }.bind(this));
-                this.middleware(this.req, this.res, this.next);
+
+                afterEach(function() {
+                    JSON.stringify.restore();
+                });
+
+                it('responds with HTTP status code of 500 when unable to generate JSON', function(done) {
+                    this.router.route('/bad-resource', {
+                        type: 'object',
+                        properties: {
+                            bar: { type: 'string' }
+                        }
+                    }, {
+                        get: function(params, req) {
+                            return this.badResource
+                        }.bind(this)
+                    });
+                    this.req.url = '/bad-resource?props=bar'
+                    this.res.end = sinon.spy(function() {
+                        this.res.should.have.property('statusCode', 500);
+                        done();
+                    }.bind(this));
+                    this.middleware(this.req, this.res, this.next);
+                });
             });
         });
 
