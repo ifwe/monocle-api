@@ -2,6 +2,7 @@ var Router = require('../../lib/Router');
 var Request = require('../../lib/Request');
 var Resource = require('../../lib/Resource');
 var Connection = require('../../lib/Connection');
+var Symlink = require('../../lib/Symlink');
 var Promise = require('bluebird');
 
 describe('API Router', function() {
@@ -350,6 +351,51 @@ describe('API Router', function() {
         });
     });
 
+    describe('symlinks', function() {
+        beforeEach(function() {
+            this.router = new Router();
+            this.router.route('/foo', {
+                type: 'object',
+                properties: {
+                    bar: { type: 'symlink' },
+                    derp: { type: 'string' }
+                }
+            }, {
+                get: function(request) {
+                    return {
+                        bar: new Symlink('/bar'),
+                        derp: 'test derp'
+                    }
+                }
+            });
+
+            this.router.route('/bar', {
+                type: 'object',
+                properties: {
+                    baz: { type: 'string' }
+                }
+            }, {
+                get: function(request) {
+                    return {
+                        baz: 'test baz'
+                    }
+                }
+            });
+
+            this.connection = new Connection(this.router, {}, {});
+        });
+
+        it('resolves value', function() {
+            return this.connection.get('/foo', {
+                props: ['bar']
+            })
+            .then(function(result) {
+                result.should.have.property('bar');
+                result.bar.should.have.property('baz', 'test baz');
+            });
+        });
+    });
+
     describe('method OPTIONS /', function() {
         beforeEach(function() {
             var noop = function() {};
@@ -692,26 +738,37 @@ describe('API Router', function() {
                 this.middleware(this.req, this.res, this.next);
             });
 
-            it('responds with HTTP status code of 500 when unable to generate JSON', function(done) {
-                this.router.route('/bad-resource', {
-                    type: 'object',
-                    properties: {
-                        bar: { type: 'object' }
-                    }
-                }, {
-                    get: function(params, req) {
-                        // Create a bad object
-                        var result = {};
-                        result.bar = result; // circular reference cannot be JSONified
-                        return result;
-                    }
+            describe('unserializable result', function() {
+                beforeEach(function() {
+                    this.badResource = { bar: 'test bar' };
+                    // Force serialization to fail
+                    sinon.stub(JSON, 'stringify')
+                    .returns('{}') // return plain JSON by defailt
+                    .withArgs(this.badResource, null, 2).throws(new Error("Unable to serialize object"));
                 });
-                this.req.url = '/bad-resource?props=bar'
-                this.res.end = sinon.spy(function() {
-                    this.res.should.have.property('statusCode', 500);
-                    done();
-                }.bind(this));
-                this.middleware(this.req, this.res, this.next);
+
+                afterEach(function() {
+                    JSON.stringify.restore();
+                });
+
+                it('responds with HTTP status code of 500 when unable to generate JSON', function(done) {
+                    this.router.route('/bad-resource', {
+                        type: 'object',
+                        properties: {
+                            bar: { type: 'string' }
+                        }
+                    }, {
+                        get: function(params, req) {
+                            return this.badResource
+                        }.bind(this)
+                    });
+                    this.req.url = '/bad-resource?props=bar'
+                    this.res.end = sinon.spy(function() {
+                        this.res.should.have.property('statusCode', 500);
+                        done();
+                    }.bind(this));
+                    this.middleware(this.req, this.res, this.next);
+                });
             });
         });
 

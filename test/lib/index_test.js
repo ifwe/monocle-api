@@ -12,4 +12,8 @@ describe('Module', function() {
     it('exposes .Request', function() {
         Router.Request.should.be.a('function');
     });
+
+    it('exposes .Symlink', function() {
+        Router.Symlink.should.be.a('function');
+    });
 });
