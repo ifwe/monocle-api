@@ -357,7 +357,7 @@ describe('API Router', function() {
             this.router.route('/foo', {
                 type: 'object',
                 properties: {
-                    bar: { type: 'symlink' },
+                    bar: { type: 'object' },
                     derp: { type: 'string' }
                 }
             }, {
@@ -385,13 +385,21 @@ describe('API Router', function() {
             this.connection = new Connection(this.router, {}, {});
         });
 
-        it('resolves value', function() {
-            return this.connection.get('/foo', {
-                props: ['bar']
-            })
+        it('resolves value when particular props is requested', function() {
+            return this.connection.get('/foo', {props: ["bar"]})
             .then(function(result) {
                 result.should.have.property('bar');
                 result.bar.should.have.property('baz', 'test baz');
+                result.should.not.have.property('derp');
+            });
+        });
+
+        it('resolves value for all props', function() {
+            return this.connection.get('/foo')
+            .then(function(result) {
+                result.should.have.property('bar');
+                result.bar.should.have.property('baz', 'test baz');
+                result.should.have.property('derp', 'test derp');
             });
         });
     });
