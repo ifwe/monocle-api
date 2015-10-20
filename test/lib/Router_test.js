@@ -584,6 +584,17 @@ describe('API Router', function() {
                 }.bind(this));
             });
 
+            it('provides API timing to callback', function(done) {
+                this.connection.get(this.resourceId)
+                .finally(function() {
+                    this.eventSpy.called.should.be.true;
+                    this.eventSpy.lastCall.args[0].should.have.property('duration');
+                    this.eventSpy.lastCall.args[0].should.have.property('timeStart');
+                    this.eventSpy.lastCall.args[0].should.have.property('timeEnd');
+                    done();
+                }.bind(this));
+            });
+
             it('does not call event callback on failure', function(done) {
                 this.connection.get('/bad-resource')
                 .catch(function(result) {
@@ -633,6 +644,20 @@ describe('API Router', function() {
                     this.eventSpy.lastCall.args[0].should.have.property('request');
                     this.eventSpy.lastCall.args[0].should.have.property('schema', null);
                     this.eventSpy.lastCall.args[0].request.should.be.instanceOf(Request);
+                    done();
+                }.bind(this));
+            });
+
+            it('provides API timing to callback', function(done) {
+                this.connection.get('/bad-resource')
+                .catch(function(result) {
+                    // continue
+                })
+                .finally(function() {
+                    this.eventSpy.called.should.be.true;
+                    this.eventSpy.lastCall.args[0].should.have.property('duration');
+                    this.eventSpy.lastCall.args[0].should.have.property('timeStart');
+                    this.eventSpy.lastCall.args[0].should.have.property('timeEnd');
                     done();
                 }.bind(this));
             });
