@@ -107,6 +107,47 @@ describe('API Router', function() {
             }.bind(this)).to.throw();
         });
 
+        describe('with nested resource', function() {
+            beforeEach(function() {
+                this.router.route('/nested', {
+                    type: 'object',
+                    properties: {
+                        child: {
+                            type: 'object',
+                            properties: {
+                                foo: {
+                                    type: 'string'
+                                }
+                            }
+                        }
+                    }
+                }, {
+                    get: function() {
+                        var child = new Resource('/nested/child', {
+                            foo: 'test foo'
+                        }, 1000);
+                        return new Resource('/nested', {
+                            child: child
+                        }, 2000);
+                    }
+                });
+            });
+
+            it('contains $id for child resource', function() {
+                return this.connection.get('/nested')
+                .then(function(nested) {
+                    nested.child.should.have.property('$id', '/nested/child');
+                });
+            });
+
+            it('contains $expires for child resource', function() {
+                return this.connection.get('/nested')
+                .then(function(nested) {
+                    nested.child.should.have.property('$expires', 1000);
+                });
+            });
+        });
+
         describe('with collection', function() {
             it('merges collection of resources', function() {
                 this.foosSchema = {
