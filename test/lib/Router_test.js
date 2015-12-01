@@ -364,8 +364,7 @@ describe('API Router', function() {
         });
     });
 
-    // Router.prototype.status is not accessible here. Status factory method will be moved in a future story.
-    describe.skip('custom HTTP status response', function() {
+    describe('custom HTTP status response', function() {
         beforeEach(function() {
             this.router = new Router();
             this.router.route('/foo', {
@@ -375,19 +374,75 @@ describe('API Router', function() {
                 }
             }, {
                 post: function(request, connection) {
-                    console.log('ere');
                     return this.router.status(201);
-                }
+                }.bind(this)
             });
             this.connection = new Connection(this.router, {}, {});
         });
 
-        it('provide status as httpStatus property', function() {
+        it('provide status as $httpStatus property', function() {
             return this.connection.post('/foo')
             .then(function(result) {
-                console.log(result);
                 result.should.be.ok;
                 result.$httpStatus.should.equal(201);
+            });
+        });
+
+        it('does not validate response when status is < 200', function() {
+            this.router.route('/failure', {
+                type: 'object',
+                properties: {
+                    foo: { type: 'string' }
+                }
+            }, {
+                get: [
+                    {
+                        props: ['foo'],
+                        callback: function(request, connection) {
+                            return this.router.status(199, {
+                                error: 'test_error'
+                            });
+                        }.bind(this)
+                    }
+                ]
+            });
+
+            return this.connection.get('/failure', {
+                props: ['foo']
+            })
+            .then(function(result) {
+                result.should.be.ok;
+                result.$httpStatus.should.equal(199);
+                result.should.have.property('error', 'test_error');
+            });
+        });
+
+        it('does not validate response when status is >= 300', function() {
+            this.router.route('/failure', {
+                type: 'object',
+                properties: {
+                    foo: { type: 'string' }
+                }
+            }, {
+                get: [
+                    {
+                        props: ['foo'],
+                        callback: function(request, connection) {
+                            return this.router.status(300, {
+                                error: 'test_error'
+                            });
+                        }.bind(this)
+                    }
+                ]
+            });
+
+            return this.connection.get('/failure', {
+                props: ['foo']
+            })
+            .then(function(result) {
+                result.should.be.ok;
+                result.$httpStatus.should.equal(300);
+                result.should.have.property('error', 'test_error');
             });
         });
     });
