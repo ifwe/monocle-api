@@ -38,10 +38,11 @@ describe('Connection', function() {
                         foo: 'bar'
                     };
                     sinon.spy(this.connection, method.toLowerCase());
-                    this.connection[method.toLowerCase()](this.resourceId, this.options);
                 });
 
                 it('should call router.handle with a new Request object for HTTP method: ' + method, function () {
+                    this.connection[method.toLowerCase()](this.resourceId, this.options);
+
                     var resourceId = this.connection[method.toLowerCase()].lastCall.args[0];
                     this.router.handle.called.should.be.true;
                     // Request param
@@ -53,8 +54,13 @@ describe('Connection', function() {
                     // Connection param
                     this.router.handle.lastCall.args[1].should.be.instanceOf(Connection);
                 });
-            });
 
+                it('sets resource if specified in options', function() {
+                    this.options.resource = { foo: 'test foo' };
+                    this.connection[method.toLowerCase()](this.resourceId, this.options);
+                    this.router.handle.lastCall.args[0].getResource().should.equal(this.options.resource);
+                });
+            });
         });
     });
 });
