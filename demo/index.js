@@ -91,9 +91,13 @@ api.route('/users/:userId/photos', photoCollectionSchema, {
     // The API router will figure out which callbacks are necessary to satisfy the incoming request.
     get: function(request) {
         var userId = request.getParam('userId');
+
+        //Get Parametersplice(0, limit).
+        var limit = request.getQuery('limit') || mockPhotos.length;
+
         var photos = mockPhotos.filter(function(photo) {
             return photo.userId === userId;
-        }).map(function(photo) {
+        }).splice(0, limit).map(function(photo) {
             return new Resource('/users/' + userId + '/photos/' + photo.photoId, photo, 86400);
         });
         if (!photos.length) {

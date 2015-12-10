@@ -4,7 +4,8 @@
   "description": "API router focused on consistency, flexibility, and performance.",
   "main": "lib/index.js",
   "scripts": {
-    "test": "grunt test",
+    "test": "grunt mochaTest",
+    "watch": "grunt watch",
     "simple-demo": "nodemon demo/simple.js",
     "demo": "nodemon demo/index.js"
   },

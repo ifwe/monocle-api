@@ -60,6 +60,14 @@ describe('Connection', function() {
                     this.connection[method.toLowerCase()](this.resourceId, this.options);
                     this.router.handle.lastCall.args[0].getResource().should.equal(this.options.resource);
                 });
+
+                it('sets query params if specified in options', function() {
+                    this.options.query = { foo: 'test foo', foo2: 'test foo2'};
+                    this.connection[method.toLowerCase()](this.resourceId, this.options);
+
+                    this.router.handle.lastCall.args[0].getQuery('foo').should.equal('test foo');
+                    this.router.handle.lastCall.args[0].getQuery('foo2').should.equal('test foo2');
+                });
             });
         });
     });
