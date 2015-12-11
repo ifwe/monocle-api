@@ -61,6 +61,55 @@ describe('API Router', function() {
             this.clock.restore();
         });
 
+        describe('Connects to a resource with get parameters', function() {
+            beforeEach(function() {
+                this.getParamsFoo = sinon.spy(function(request, connection) {
+                    return {
+                        id_query: request.getQuery('fooId'),
+                        id_param: request.getQuery('fooId'),
+                        param1: request.getQuery('param1'),
+                        param2: request.getQuery('param2')
+                    };
+                });
+            })
+
+            it('resolves with object from callback with route having a parameter in the middle of the url', function(done) {
+                this.router.route('/foo/:fooId/test', this.fooSchema, {
+                    get: this.getParamsFoo
+                });
+                this.connection.get('/foo/123/test', {
+                  query: { param1: 1, param2: 'test' }
+                })
+                .then(function(foo) {
+                    foo.should.deep.equal({
+                        id_query: '123',
+                        id_param: '123',
+                        param1: 1,
+                        param2: 'test'
+                    });
+                }.bind(this))
+                .finally(done);
+            });
+
+            it('resolves with object from callback with route having a parameter in end of the url', function(done) {
+                this.router.route('/foo/test/:fooId', this.fooSchema, {
+                    get: this.getParamsFoo
+                });
+                this.connection.get('/foo/test/123', {
+                  query: { param1: 1, param2: 'test' }
+                })
+                .then(function(foo) {
+                    foo.should.deep.equal({
+                        id_query: '123',
+                        id_param: '123',
+                        param1: 1,
+                        param2: 'test'
+                    });
+                }.bind(this))
+                .finally(done);
+            });
+        });
+
         it('calls associated callback with request and connection objects', function(done) {
             this.connection.get('/foo/123')
             .then(function(foo) {
@@ -253,7 +302,6 @@ describe('API Router', function() {
             });
             this.router.get('/example/foo/bar/baz')
             .then(function(result) {
-                console.log('result', result);
                 result.should.have.property('foo', 'foo A');
                 this.filterA.called.should.be.true;
                 this.filterB.called.should.be.false;
