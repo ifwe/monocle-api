@@ -496,24 +496,11 @@ describe('API Router', function() {
     });
 
     describe('symlinks', function() {
+
         beforeEach(function() {
             this.router = new Router();
-            this.router.route('/foo', {
-                type: 'object',
-                properties: {
-                    bar: { type: 'object' },
-                    derp: { type: 'string' }
-                }
-            }, {
-                get: function(request) {
-                    return {
-                        bar: new Symlink('/bar'),
-                        derp: 'test derp'
-                    }
-                }
-            });
 
-            this.router.route('/bar', {
+           this.router.route('/bar', {
                 type: 'object',
                 properties: {
                     baz: { type: 'string' }
@@ -526,24 +513,93 @@ describe('API Router', function() {
                 }
             });
 
+            this.router.route('/coffee', {
+                type: 'object',
+                properties: {
+                    baz: { type: 'string' }
+                }
+            }, {
+                get: function(request) {
+                    return {
+                        baz: 'test baz232'
+                    }
+                }
+            });
+
             this.connection = new Connection(this.router, {}, {});
         });
 
-        it('resolves value when particular props is requested', function() {
-            return this.connection.get('/foo', {props: ["bar"]})
-            .then(function(result) {
-                result.should.have.property('bar');
-                result.bar.should.have.property('baz', 'test baz');
-                result.should.not.have.property('derp');
+        describe('non nested', function() {
+            beforeEach(function() {
+                this.router.route('/foo', {
+                    type: 'object',
+                    properties: {
+                        bar: { type: 'object' },
+                        derp: { type: 'string' }
+                    }
+                }, {
+                    get: function(request) {
+                        return {
+                            bar: new Symlink('/bar'),
+                            derp: 'test derp'
+                        }
+                    }
+                });
+            });
+
+            it('resolves value when particular props is requested', function() {
+                return this.connection.get('/foo', {props: ["bar"]})
+                .then(function(result) {
+                    result.should.have.property('bar');
+                    result.bar.should.have.property('baz', 'test baz');
+                    result.should.not.have.property('derp');
+                });
+            });
+
+            it('resolves value for all props', function() {
+                return this.connection.get('/foo')
+                .then(function(result) {
+                    result.should.have.property('bar');
+                    result.bar.should.have.property('baz', 'test baz');
+                    result.should.have.property('derp', 'test derp');
+                });
             });
         });
 
-        it('resolves value for all props', function() {
-            return this.connection.get('/foo')
-            .then(function(result) {
-                result.should.have.property('bar');
-                result.bar.should.have.property('baz', 'test baz');
-                result.should.have.property('derp', 'test derp');
+        describe('nested', function() {
+            beforeEach(function() {
+                this.router.route('/foo-nested', {
+                    type: 'object',
+                    properties: {
+                        bar: { type: 'array' },
+                        derp: { type: 'string' }
+                    }
+                }, {
+                    get: function(request) {
+                        return {
+                            bar: [{user: new Symlink('/bar'), offset:1}, {user: new Symlink('/coffee'), offset:2}],
+                            derp: 'test derp'
+                        }
+                    }
+                });
+            });
+
+            it('resolves value when particular props is requested', function() {
+                return this.connection.get('/foo-nested', {props: ["bar"]})
+                .then(function(result) {
+                    result.should.have.property('bar');
+                    result.bar.should.deep.equal([{user: {baz:'test baz'}, offset:1}, {user: {baz:'test baz232'}, offset:2}]);
+                    result.should.not.have.property('derp');
+                });
+            });
+
+            it('resolves value for all props', function() {
+                return this.connection.get('/foo-nested')
+                .then(function(result) {
+                    result.should.have.property('bar');
+                    result.bar.should.deep.equal([{user: {baz:'test baz'}, offset:1}, {user: {baz:'test baz232'}, offset:2}]);
+                    result.should.have.property('derp', 'test derp');
+                });
             });
         });
     });
