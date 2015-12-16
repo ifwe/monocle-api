@@ -3,7 +3,10 @@ var Request = require('../../lib/Request');
 var Resource = require('../../lib/Resource');
 var Connection = require('../../lib/Connection');
 var Symlink = require('../../lib/Symlink');
+var HttpStatusCodes = require('../../lib/HttpStatusCodes');
 var Promise = require('bluebird');
+var jsen = require('jsen');
+var errorSchema = require('../../lib/schemas/error');
 
 describe('API Router', function() {
     it('is a constructor', function() {
@@ -154,6 +157,199 @@ describe('API Router', function() {
                     get: function() {/* empty */}
                 });
             }.bind(this)).to.throw();
+        });
+
+        describe('errors', function() {
+            var httpStatusCodes = new HttpStatusCodes();
+            var statuses = httpStatusCodes.getAll();
+
+            var dataAllStatusCodes = Object.keys(statuses)
+            .map(function(code) {
+                return {
+                    code: parseInt(code, 10),
+                    error: statuses[code]
+                }
+            });
+
+            var dataSuccessStatusCodes = dataAllStatusCodes.filter(function(data) {
+                return data.code >= 200 && data.code < 300;
+            });
+
+            var dataClientErrorStatusCodes = dataAllStatusCodes.filter(function(data) {
+                return data.code >= 400 && data.code < 500;
+            });
+
+            var dataServerErrorStatusCodes = dataAllStatusCodes.filter(function(data) {
+                return data.code >= 500 && data.code < 600;
+            });
+
+            describe('client errors', function() {
+                dataClientErrorStatusCodes.slice(0, 1).forEach(function(data) {
+                    it('returns HTTP status code ' + data.code + ' and associated error string "' + data.error + '"', function() {
+                        this.router.route('/will-error', {
+                            type: 'object',
+                            properties: {
+                                foo: { type: 'string' }
+                            }
+                        }, {
+                            get: function() {
+                                return this.router.error(data.code, 'test_message');
+                            }.bind(this)
+                        });
+
+                        return this.connection.get('/will-error')
+                        .then(function(error) {
+                            return Promise.reject('Did not expect success');
+                        })
+                        .catch(function(error) {
+                            error.should.be.ok;
+                            error.should.have.property('code', data.code);
+                            error.should.have.property('error', data.error);
+                        }.bind(this));
+                    });
+
+                    it('returns error message', function() {
+                        this.router.route('/will-error', {
+                            type: 'object',
+                            properties: {
+                                foo: { type: 'string' }
+                            }
+                        }, {
+                            get: function() {
+                                return this.router.error(data.code, 'test_message');
+                            }.bind(this)
+                        });
+
+                        return this.connection.get('/will-error')
+                        .then(function(error) {
+                            return Promise.reject('Did not expect success');
+                        })
+                        .catch(function(error) {
+                            error.should.be.ok;
+                            error.should.have.property('message', 'test_message');
+                        }.bind(this));
+                    });
+
+                    it('returns empty array of properties by default', function() {
+                        this.router.route('/will-error', {
+                            type: 'object',
+                            properties: {
+                                foo: { type: 'string' }
+                            }
+                        }, {
+                            get: function() {
+                                return this.router.error(data.code, 'test_message');
+                            }.bind(this)
+                        });
+
+                        return this.connection.get('/will-error')
+                        .then(function(error) {
+                            return Promise.reject('Did not expect success');
+                        })
+                        .catch(function(error) {
+                            error.should.be.ok;
+                            error.should.have.property('properties');
+                            error.properties.should.be.an('array');
+                            error.properties.should.have.lengthOf(0);
+                        }.bind(this));
+                    });
+
+                    it('returns default error message if not provided', function() {
+                        this.router.route('/will-error', {
+                            type: 'object',
+                            properties: {
+                                foo: { type: 'string' }
+                            }
+                        }, {
+                            get: function() {
+                                return this.router.error(data.code);
+                            }.bind(this)
+                        });
+
+                        return this.connection.get('/will-error')
+                        .then(function(error) {
+                            return Promise.reject('Did not expect success');
+                        })
+                        .catch(function(error) {
+                            error.should.be.ok;
+                            error.should.have.property('message', 'Unknown error');
+                        }.bind(this));
+                    });
+
+                    it('returns details about properties that are in error', function() {
+                        this.router.route('/will-error', {
+                            type: 'object',
+                            properties: {
+                                displayName: {
+                                    type: 'string',
+                                    errorCodes: [
+                                        {
+                                            code: 1000,
+                                            error: 'TOO_SHORT',
+                                            message: 'Display name is too short'
+                                        }
+                                    ]
+                                }
+                            }
+                        }, {
+                            patch: function(request, connection) {
+                                // Return a property error
+                                return request.propertyError('displayName', 1000);
+                            }
+                        });
+
+                        return this.connection.patch('/will-error', { /* anything */ })
+                        .then(function(error) {
+                            return Promise.reject('Did not expect success');
+                        })
+                        .catch(function(error) {
+                            error.should.be.ok;
+                            error.should.have.property('properties');
+                            error.properties.should.be.an('array');
+                            error.properties.should.have.lengthOf(1);
+                            error.properties[0].should.deep.equal({
+                                property: 'displayName',
+                                code: 1000,
+                                error: 'TOO_SHORT',
+                                message: 'Display name is too short'
+                            });
+                        }.bind(this));
+                    });
+
+                    it('is a valid error object', function() {
+                        this.router.route('/will-error', {
+                            type: 'object',
+                            properties: {
+                                displayName: {
+                                    type: 'string',
+                                    errorCodes: [
+                                        {
+                                            code: 1000,
+                                            error: 'TOO_SHORT',
+                                            message: 'Display name is too short'
+                                        }
+                                    ]
+                                }
+                            }
+                        }, {
+                            patch: function(request, connection) {
+                                // Return a property error
+                                return request.propertyError('displayName', 1000);
+                            }
+                        });
+
+                        return this.connection.patch('/will-error', { /* anything */ })
+                        .then(function(error) {
+                            return Promise.reject('Did not expect success');
+                        })
+                        .catch(function(error) {
+                            var validate = jsen(errorSchema);
+                            var valid = validate(error);
+                            valid.should.be.true;
+                        }.bind(this));
+                    });
+                });
+            });
         });
 
         describe('with nested resource', function() {
@@ -436,7 +632,7 @@ describe('API Router', function() {
             });
         });
 
-        it('does not validate response when status is < 200', function() {
+        it('does not validate with resource schema when status is < 200', function() {
             this.router.route('/failure', {
                 type: 'object',
                 properties: {
@@ -448,7 +644,10 @@ describe('API Router', function() {
                         props: ['foo'],
                         callback: function(request, connection) {
                             return this.router.status(199, {
-                                error: 'test_error'
+                                code: 199,
+                                error: 'test_error',
+                                message: 'test_message',
+                                properties: []
                             });
                         }.bind(this)
                     }
@@ -459,9 +658,11 @@ describe('API Router', function() {
                 props: ['foo']
             })
             .then(function(result) {
-                result.should.be.ok;
-                result.$httpStatus.should.equal(199);
-                result.should.have.property('error', 'test_error');
+                result.should.not.be.ok;
+            }).catch(function(error) {
+                error.should.be.ok;
+                error.$httpStatus.should.equal(199);
+                error.should.have.property('error', 'test_error');
             });
         });
 
@@ -477,7 +678,10 @@ describe('API Router', function() {
                         props: ['foo'],
                         callback: function(request, connection) {
                             return this.router.status(300, {
-                                error: 'test_error'
+                                code: 300,
+                                error: 'test_error',
+                                message: 'test_message',
+                                properties: []
                             });
                         }.bind(this)
                     }
@@ -488,9 +692,11 @@ describe('API Router', function() {
                 props: ['foo']
             })
             .then(function(result) {
-                result.should.be.ok;
-                result.$httpStatus.should.equal(300);
-                result.should.have.property('error', 'test_error');
+                result.should.not.be.ok;
+            }).catch(function(error) {
+                error.should.be.ok;
+                error.$httpStatus.should.equal(300);
+                error.should.have.property('error', 'test_error');
             });
         });
     });
