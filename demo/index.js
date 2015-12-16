@@ -68,7 +68,10 @@ api.route('/users/:userId', userSchema, {
         }
     ],
     patch: function() {},
-    delete: function() {}
+    delete: function(request) {
+        var userId = request.getParam('userId');
+        return request.error(403, 'You are not allowed to delete this user.');
+    }
 });
 
 // Defines the route that manages a collection of users

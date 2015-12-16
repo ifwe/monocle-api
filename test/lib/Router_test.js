@@ -1250,7 +1250,7 @@ describe('API Router', function() {
             });
         });
 
-        describe.skip('custom HTTP status response', function() {
+        describe('custom HTTP status response with no body', function() {
             beforeEach(function() {
                 this.router = new Router();
                 this.router.route('/foo', {
@@ -1260,8 +1260,8 @@ describe('API Router', function() {
                     }
                 }, {
                     post: function(request) {
-                        return this.status(201);
-                    }
+                        return this.router.status(201);
+                    }.bind(this)
                 });
                 this.middleware = this.router.middleware();
                 this.req.method = 'POST';
@@ -1277,7 +1277,7 @@ describe('API Router', function() {
             });
         });
 
-        describe.skip('custom HTTP status response with body', function() {
+        describe('custom HTTP status response with body', function() {
             beforeEach(function() {
                 this.router = new Router();
                 this.router.route('/foo', {
@@ -1287,10 +1287,10 @@ describe('API Router', function() {
                     }
                 }, {
                     post: function(request) {
-                        return this.status(201, {
+                        return this.router.status(201, {
                             anything: 'canary'
                         });
-                    }
+                    }.bind(this)
                 });
                 this.middleware = this.router.middleware();
                 this.req.method = 'POST';
