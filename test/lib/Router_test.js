@@ -1119,7 +1119,8 @@ describe('API Router', function() {
             this.router.route('/derp', {
                 type: 'object',
                 properties: {
-                    flerp: { type: 'string' }
+                    flerp: { type: 'string' },
+                    fleep: { type: 'string' }
                 }
             }, {
                 get: this.derpGetSpy,
