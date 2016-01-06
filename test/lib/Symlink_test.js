@@ -28,5 +28,5 @@ describe('Symlink', function() {
                 this.connection.get.calledWith(this.id).should.be.true;
             }.bind(this));
         });
-    })
+    });
 });
