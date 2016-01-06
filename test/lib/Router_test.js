@@ -1105,6 +1105,21 @@ describe('API Router', function() {
                 return request.getResource();
             });
 
+            this.enumTestGetSpy = sinon.spy(function() {
+                return {
+                    foo: 'bar'
+                };
+            });
+            this.enumTestPatchSpy = sinon.spy(function(request) {
+                return request.getResource();
+            });
+            this.enumTestPostSpy = sinon.spy(function(request) {
+                return request.getResource();
+            });
+            this.enumTestPutSpy = sinon.spy(function(request) {
+                return request.getResource();
+            });
+
             // Configure router
             this.router.route('/foo', {
                 type: 'object',
@@ -1127,6 +1142,21 @@ describe('API Router', function() {
                 patch: this.derpPatchSpy,
                 post: this.derpPostSpy,
                 put: this.derpPutSpy
+            });
+
+            this.router.route('/enumtest', {
+                type: 'object',
+                properties: {
+                    foo: {
+                        type: 'sting',
+                        enum: ['bar', 'baz']
+                    }
+                }
+            }, {
+                get: this.enumTestGetSpy,
+                patch: this.enumTestPatchSpy,
+                post: this.enumTestPostSpy,
+                put: this.enumTestPutSpy
             });
 
             // Stub request
@@ -1441,6 +1471,32 @@ describe('API Router', function() {
                         flerp: 'woo',
                         $id: 12,
                         $expires: new Date()
+                    };
+                    this.middleware(this.req, this.res, this.next);
+                });
+
+                it('returns 422 HTTP code when ' + method + ' request\'s body fails schema validation because the property contains a value not in the enum', function (done) {
+                    this.res.end = sinon.spy(function() {
+                        this.res.should.have.property('statusCode', 422);
+                        done();
+                    }.bind(this));
+                    this.req.method = method;
+                    this.req.url = '/enumtest';
+                    this.req.body = {
+                        foo: 'lala'
+                    };
+                    this.middleware(this.req, this.res, this.next);
+                });
+
+                it('returns 200 HTTP code when ' + method + ' request\'s body passes schema validation', function (done) {
+                    this.res.end = sinon.spy(function() {
+                        this.res.should.have.property('statusCode', 200);
+                        done();
+                    }.bind(this));
+                    this.req.method = method;
+                    this.req.url = '/enumtest';
+                    this.req.body = {
+                        foo: 'bar'
                     };
                     this.middleware(this.req, this.res, this.next);
                 });
