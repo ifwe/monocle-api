@@ -1095,7 +1095,13 @@ describe('API Router', function() {
                     flerp: 'test_flerp'
                 };
             });
+            this.derpPatchSpy = sinon.spy(function(request) {
+                return request.getResource();
+            });
             this.derpPostSpy = sinon.spy(function(request) {
+                return request.getResource();
+            });
+            this.derpPutSpy = sinon.spy(function(request) {
                 return request.getResource();
             });
 
@@ -1113,11 +1119,14 @@ describe('API Router', function() {
             this.router.route('/derp', {
                 type: 'object',
                 properties: {
-                    flerp: { type: 'string' }
+                    flerp: { type: 'string' },
+                    fleep: { type: 'string' }
                 }
             }, {
                 get: this.derpGetSpy,
-                post: this.derpPostSpy
+                patch: this.derpPatchSpy,
+                post: this.derpPostSpy,
+                put: this.derpPutSpy
             });
 
             // Stub request
@@ -1372,6 +1381,69 @@ describe('API Router', function() {
                     done();
                 }.bind(this));
                 this.middleware(this.req, this.res, this.next);
+            });
+        });
+
+        describe('request resource validation', function () {
+            beforeEach(function () {
+                this.middleware = this.router.middleware();
+            });
+
+            [Request.METHOD_PATCH, Request.METHOD_POST, Request.METHOD_PUT].forEach(function (method) {
+                it('returns 422 HTTP code when ' + method + ' request\'s body fails schema validation because it only receives invalid property names', function (done) {
+                    this.res.end = sinon.spy(function() {
+                        this.res.should.have.property('statusCode', 422);
+                        done();
+                    }.bind(this));
+                    this.req.method = method;
+                    this.req.url = '/derp';
+                    this.req.body = {
+                        invalidPropertyName: 'lala'
+                    };
+                    this.middleware(this.req, this.res, this.next);
+                });
+
+                it('returns 422 HTTP code when ' + method + ' request\'s body fails schema validation because it receives invalid property names along with valid property names', function (done) {
+                    this.res.end = sinon.spy(function() {
+                        this.res.should.have.property('statusCode', 422);
+                        done();
+                    }.bind(this));
+                    this.req.method = method;
+                    this.req.url = '/derp';
+                    this.req.body = {
+                        invalidPropertyName: 'lala',
+                        flerp: 'woo'
+                    };
+                    this.middleware(this.req, this.res, this.next);
+                });
+
+                it('returns 200 HTTP code when ' + method + ' request\'s body passes schema validation', function (done) {
+                    this.res.end = sinon.spy(function() {
+                        this.res.should.have.property('statusCode', 200);
+                        done();
+                    }.bind(this));
+                    this.req.method = method;
+                    this.req.url = '/derp';
+                    this.req.body = {
+                        flerp: 'woo'
+                    };
+                    this.middleware(this.req, this.res, this.next);
+                });
+
+                it('ignores $id and $expires properties and returns 200 HTTP code when ' + method + ' request\'s body passes schema validation', function (done) {
+                    this.res.end = sinon.spy(function() {
+                        this.res.should.have.property('statusCode', 200);
+                        done();
+                    }.bind(this));
+                    this.req.method = method;
+                    this.req.url = '/derp';
+                    this.req.body = {
+                        flerp: 'woo',
+                        $id: 12,
+                        $expires: new Date()
+                    };
+                    this.middleware(this.req, this.res, this.next);
+                });
             });
         });
 
