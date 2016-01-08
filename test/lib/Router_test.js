@@ -26,12 +26,14 @@ describe('API Router', function() {
             this.fooSchema = {
                 type: 'object',
                 properties: {
-                    foo: { type: 'string' }
+                    foo: { type: 'string' },
+                    nullable: { type: ['string', 'null'] }
                 }
             };
             this.getFooSpy = sinon.spy(function(request, connection) {
                 return {
-                    foo: 'test foo'
+                    foo: 'test foo',
+                    nullable: null
                 };
             });
             this.router.route('/foo/:fooId', this.fooSchema, {
@@ -74,7 +76,7 @@ describe('API Router', function() {
                         param2: request.getQuery('param2')
                     };
                 });
-            })
+            });
 
             it('resolves with object from callback with route having a parameter in the middle of the url', function(done) {
                 this.router.route('/foo/:fooId/test', this.fooSchema, {
@@ -131,7 +133,8 @@ describe('API Router', function() {
             this.connection.get('/foo/123')
             .then(function(foo) {
                 foo.should.deep.equal({
-                    foo: 'test foo'
+                    foo: 'test foo',
+                    nullable: null
                 });
             }.bind(this))
             .finally(done);
@@ -348,6 +351,15 @@ describe('API Router', function() {
                             valid.should.be.true;
                         }.bind(this));
                     });
+                });
+            });
+        });
+
+        describe('with null value', function() {
+            it('is returned', function() {
+                return this.connection.get('/foo/123')
+                .then(function(foo) {
+                    foo.should.have.property('nullable', null);
                 });
             });
         });
