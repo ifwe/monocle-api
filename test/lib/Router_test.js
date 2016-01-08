@@ -368,11 +368,10 @@ describe('API Router', function() {
                     }
                 }, {
                     get: function() {
-                        var child = new Resource('/nested/child', {
-                            foo: 'test foo'
-                        }, 1000);
                         return new Resource('/nested', {
-                            child: child
+                            child: new Resource('/nested/child', {
+                                foo: 'test foo'
+                            }, 1000)
                         }, 2000);
                     }
                 });
@@ -390,6 +389,93 @@ describe('API Router', function() {
                 .then(function(nested) {
                     nested.child.should.have.property('$expires', 1000);
                 });
+            });
+        });
+
+        describe('with symlink', function() {
+            beforeEach(function() {
+                this.childSchema = {
+                    type: 'object',
+                    properties: {
+                        foo: { type: 'string' },
+                        bar: { type: 'string' },
+                        dur: { type: 'string' }
+                    }
+                };
+
+                this.parentSchema = {
+                    type: 'object',
+                    properties: {
+                        name: { type: 'string' },
+                        child: this.childSchema
+                    }
+                };
+
+                this.router.route('/parent', this.parentSchema, {
+                    get: function() {
+                        return new Resource('/parent', {
+                            name: 'test name',
+                            child: new Symlink('/parent/child')
+                        }, 1000);
+                    }
+                });
+
+                this.childFooCallback = sinon.spy(function() {
+                    return new Resource('/parent/child', {
+                        foo: 'test child foo'
+                    }, 2000);
+                });
+
+                this.childBarCallback = sinon.spy(function() {
+                    return new Resource('/parent/child', {
+                        bar: 'test child bar'
+                    }, 2000);
+                });
+
+                this.childDurCallback = sinon.spy(function() {
+                    return new Resource('/parent/child', {
+                        dur: 'test child dur'
+                    }, 2000);
+                });
+
+                this.router.route('/parent/child', this.childSchema, {
+                    get: [
+                        {
+                            props: ['foo'],
+                            callback: this.childFooCallback
+                        },
+                        {
+                            props: ['bar'],
+                            callback: this.childBarCallback
+                        },
+                        {
+                            props: ['dur'],
+                            callback: this.childDurCallback
+                        }
+                    ]
+                });
+            });
+
+            it('only makes necessary calls to fullfill requested properties', function() {
+                return this.connection.get('/parent', {
+                    props: ['child.foo', 'child.dur']
+                })
+                .then(function(result) {
+                    this.childFooCallback.called.should.be.true;
+                    this.childBarCallback.called.should.be.false;
+                    this.childDurCallback.called.should.be.true;
+                }.bind(this));
+            });
+
+            it('does not invoke symlink if not requested', function() {
+                return this.connection.get('/parent', {
+                    props: ['name']
+                })
+                .then(function(result) {
+                    this.childFooCallback.called.should.be.false;
+                    this.childBarCallback.called.should.be.false;
+                    this.childDurCallback.called.should.be.false;
+                }.bind(this));
             });
         });
 
@@ -702,7 +788,6 @@ describe('API Router', function() {
     });
 
     describe('symlinks', function() {
-
         beforeEach(function() {
             this.router = new Router();
 
@@ -754,7 +839,7 @@ describe('API Router', function() {
             });
 
             it('resolves value when particular props is requested', function() {
-                return this.connection.get('/foo', {props: ["bar"]})
+                return this.connection.get('/foo', { props: ['bar'] })
                 .then(function(result) {
                     result.should.have.property('bar');
                     result.bar.should.have.property('baz', 'test baz');
@@ -791,7 +876,7 @@ describe('API Router', function() {
             });
 
             it('resolves value when particular props is requested', function() {
-                return this.connection.get('/foo-nested', {props: ["bar"]})
+                return this.connection.get('/foo-nested', { props: ['bar'] })
                 .then(function(result) {
                     result.should.have.property('bar');
                     result.bar.should.deep.equal([{user: {baz:'test baz'}, offset:1}, {user: {baz:'test baz232'}, offset:2}]);
