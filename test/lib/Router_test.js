@@ -905,6 +905,255 @@ describe('API Router', function() {
                 });
             });
         });
+
+        describe('complex nesting', function() {
+            beforeEach(function() {
+                this.grandChildSchema = {
+                    type: 'object',
+                    properties: {
+                        derp: { type: 'string' },
+                        flerp: { type: 'string' },
+                        obj: {
+                            type: 'object',
+                            properties: {
+                                subDerp: { type: 'string' },
+                                subFlerp: { type: 'string' }
+                            }
+                        },
+                    }
+                };
+
+                this.childSchema = {
+                    type: 'object',
+                    properties: {
+                        foo: { type: 'string' },
+                        bar: { type: 'string' },
+                        obj: {
+                            type: 'object',
+                            properties: {
+                                subFoo: { type: 'string' },
+                                subBar: { type: 'string' }
+                            }
+                        },
+                        grandChildren: {
+                            type: 'array',
+                            items: this.grandChildSchema
+                        }
+                    }
+                };
+
+                this.childrenSchema = {
+                    type: 'array',
+                    items: this.childSchema
+                };
+
+                this.parentSchema = {
+                    type: 'object',
+                    properties: {
+                        children: this.childrenSchema
+                    }
+                };
+
+                this.router.route('/parent', this.parentSchema, {
+                    get: function() {
+                        return new Resource('/parent', {
+                            children: [
+                                new Symlink('/parent/child/1'),
+                                new Symlink('/parent/child/2'),
+                                new Symlink('/parent/child/3')
+                            ]
+                        });
+                    }
+                });
+
+                this.router.route('/parent/child/:childId', this.parentSchema, {
+                    get: function(request) {
+                        var childId = request.getParam('childId');
+                        return new Resource('/parent/child/' + childId, {
+                            foo: 'test foo ' + childId,
+                            bar: 'test bar ' + childId,
+                            obj: {
+                                subFoo: 'test subFoo ' + childId,
+                                subBar: 'test subBar ' + childId,
+                            },
+                            grandChildren: [
+                                new Symlink('/parent/child/' + childId + '/1'),
+                                new Symlink('/parent/child/' + childId + '/2'),
+                                new Symlink('/parent/child/' + childId + '/3')
+                            ]
+                        });
+                    }.bind(this)
+                });
+
+                this.router.route('/parent/child/:childId/:grandChildId', this.parentSchema, {
+                    get: function(request) {
+                        var childId = request.getParam('childId');
+                        var grandChildId = request.getParam('grandChildId');
+                        return new Resource('/parent/child/' + childId + '/' + grandChildId, {
+                            derp: 'test derp ' + childId + ' ' + grandChildId,
+                            flerp: 'test flerp ' + childId + ' ' + grandChildId,
+                            obj: {
+                                subDerp: 'test subDerp ' + childId + ' ' + grandChildId,
+                                subFlerp: 'test subFlerp ' + childId + ' ' + grandChildId
+                            }
+                        });
+                    }.bind(this)
+                });
+            });
+
+            it('gets all children details', function() {
+                return this.connection.get('/parent', {
+                    props: ['children']
+                }).then(function(parent) {
+                    parent.should.have.property('children');
+                    parent.children.should.be.an('array');
+
+                    parent.children[0].should.have.property('foo', 'test foo 1');
+                    parent.children[0].should.have.property('bar', 'test bar 1');
+                    parent.children[0].should.have.property('grandChildren');
+                    parent.children[0].grandChildren.should.be.an('array');
+                    parent.children[0].grandChildren[0].should.have.property('derp', 'test derp 1 1');
+                    parent.children[0].grandChildren[0].should.have.property('flerp', 'test flerp 1 1');
+
+                    parent.children[1].should.have.property('foo', 'test foo 2');
+                    parent.children[1].should.have.property('bar', 'test bar 2');
+                    parent.children[1].should.have.property('grandChildren');
+                    parent.children[1].grandChildren.should.be.an('array');
+                    parent.children[1].grandChildren[0].should.have.property('derp', 'test derp 2 1');
+                    parent.children[1].grandChildren[0].should.have.property('flerp', 'test flerp 2 1');
+
+                    parent.children[2].should.have.property('foo', 'test foo 3');
+                    parent.children[2].should.have.property('bar', 'test bar 3');
+                    parent.children[2].should.have.property('grandChildren');
+                    parent.children[2].grandChildren.should.be.an('array');
+                    parent.children[2].grandChildren[0].should.have.property('derp', 'test derp 3 1');
+                    parent.children[2].grandChildren[0].should.have.property('flerp', 'test flerp 3 1');
+                });
+            });
+
+            it('gets selective children details', function() {
+                return this.connection.get('/parent', {
+                    props: ['children@foo']
+                }).then(function(parent) {
+                    parent.should.have.property('children');
+                    parent.children.should.be.an('array');
+
+                    parent.children[0].should.have.property('foo', 'test foo 1');
+                    parent.children[0].should.not.have.property('bar');
+                    parent.children[0].should.not.have.property('grandChildren');
+
+                    parent.children[1].should.have.property('foo', 'test foo 2');
+                    parent.children[1].should.not.have.property('bar');
+                    parent.children[1].should.not.have.property('grandChildren');
+
+                    parent.children[2].should.have.property('foo', 'test foo 3');
+                    parent.children[2].should.not.have.property('bar');
+                    parent.children[2].should.not.have.property('grandChildren');
+                });
+            });
+
+            it('gets selective nested children details', function() {
+                return this.connection.get('/parent', {
+                    props: ['children@obj.subFoo']
+                }).then(function(parent) {
+                    parent.should.have.property('children');
+                    parent.children.should.be.an('array');
+
+                    parent.children[0].should.not.have.property('foo');
+                    parent.children[0].should.not.have.property('bar');
+                    parent.children[0].should.not.have.property('grandChildren');
+                    parent.children[0].should.have.property('obj');
+                    parent.children[0].obj.should.have.property('subFoo', 'test subFoo 1');
+                    parent.children[0].obj.should.not.have.property('subBar');
+
+                    parent.children[1].should.not.have.property('foo');
+                    parent.children[1].should.not.have.property('bar');
+                    parent.children[1].should.not.have.property('grandChildren');
+                    parent.children[1].should.have.property('obj');
+                    parent.children[1].obj.should.have.property('subFoo', 'test subFoo 2');
+                    parent.children[1].obj.should.not.have.property('subBar');
+
+                    parent.children[2].should.not.have.property('foo');
+                    parent.children[2].should.not.have.property('bar');
+                    parent.children[2].should.not.have.property('grandChildren');
+                    parent.children[2].should.have.property('obj');
+                    parent.children[2].obj.should.have.property('subFoo', 'test subFoo 3');
+                    parent.children[2].obj.should.not.have.property('subBar');
+                });
+            });
+
+            it('gets selective deeply nested children details', function() {
+                return this.connection.get('/parent', {
+                    props: ['children@grandChildren@obj.subFlerp']
+                }).then(function(parent) {
+                    parent.should.have.property('children');
+                    parent.children.should.be.an('array');
+
+                    parent.children[0].should.not.have.property('foo');
+                    parent.children[0].should.not.have.property('bar');
+                    parent.children[0].should.not.have.property('obj');
+                    parent.children[0].should.have.property('grandChildren');
+                    parent.children[0].grandChildren.should.be.an('array');
+                    parent.children[0].grandChildren[0].should.not.have.property('derp');
+                    parent.children[0].grandChildren[0].should.not.have.property('flerp');
+                    parent.children[0].grandChildren[0].should.have.property('obj');
+                    parent.children[0].grandChildren[0].obj.should.have.property('subFlerp', 'test subFlerp 1 1');
+                    parent.children[0].grandChildren[0].obj.should.not.have.property('subDerp');
+                    parent.children[0].grandChildren[1].should.not.have.property('derp');
+                    parent.children[0].grandChildren[1].should.not.have.property('flerp');
+                    parent.children[0].grandChildren[1].should.have.property('obj');
+                    parent.children[0].grandChildren[1].obj.should.have.property('subFlerp', 'test subFlerp 1 2');
+                    parent.children[0].grandChildren[1].obj.should.not.have.property('subDerp');
+                    parent.children[0].grandChildren[2].should.not.have.property('derp');
+                    parent.children[0].grandChildren[2].should.not.have.property('flerp');
+                    parent.children[0].grandChildren[2].should.have.property('obj');
+                    parent.children[0].grandChildren[2].obj.should.have.property('subFlerp', 'test subFlerp 1 3');
+                    parent.children[0].grandChildren[2].obj.should.not.have.property('subDerp');
+
+                    parent.children[1].should.not.have.property('foo');
+                    parent.children[1].should.not.have.property('bar');
+                    parent.children[1].should.not.have.property('obj');
+                    parent.children[1].should.have.property('grandChildren');
+                    parent.children[1].grandChildren.should.be.an('array');
+                    parent.children[1].grandChildren[0].should.not.have.property('derp');
+                    parent.children[1].grandChildren[0].should.not.have.property('flerp');
+                    parent.children[1].grandChildren[0].should.have.property('obj');
+                    parent.children[1].grandChildren[0].obj.should.have.property('subFlerp', 'test subFlerp 2 1');
+                    parent.children[1].grandChildren[0].obj.should.not.have.property('subDerp');
+                    parent.children[1].grandChildren[1].should.not.have.property('derp');
+                    parent.children[1].grandChildren[1].should.not.have.property('flerp');
+                    parent.children[1].grandChildren[1].should.have.property('obj');
+                    parent.children[1].grandChildren[1].obj.should.have.property('subFlerp', 'test subFlerp 2 2');
+                    parent.children[1].grandChildren[1].obj.should.not.have.property('subDerp');
+                    parent.children[1].grandChildren[2].should.not.have.property('derp');
+                    parent.children[1].grandChildren[2].should.not.have.property('flerp');
+                    parent.children[1].grandChildren[2].should.have.property('obj');
+                    parent.children[1].grandChildren[2].obj.should.have.property('subFlerp', 'test subFlerp 2 3');
+                    parent.children[1].grandChildren[2].obj.should.not.have.property('subDerp');
+
+                    parent.children[2].should.not.have.property('foo');
+                    parent.children[2].should.not.have.property('bar');
+                    parent.children[2].should.not.have.property('obj');
+                    parent.children[2].should.have.property('grandChildren');
+                    parent.children[2].grandChildren.should.be.an('array');
+                    parent.children[2].grandChildren[0].should.not.have.property('derp');
+                    parent.children[2].grandChildren[0].should.not.have.property('flerp');
+                    parent.children[2].grandChildren[0].should.have.property('obj');
+                    parent.children[2].grandChildren[0].obj.should.have.property('subFlerp', 'test subFlerp 3 1');
+                    parent.children[2].grandChildren[0].obj.should.not.have.property('subDerp');
+                    parent.children[2].grandChildren[1].should.not.have.property('derp');
+                    parent.children[2].grandChildren[1].should.not.have.property('flerp');
+                    parent.children[2].grandChildren[1].should.have.property('obj');
+                    parent.children[2].grandChildren[1].obj.should.have.property('subFlerp', 'test subFlerp 3 2');
+                    parent.children[2].grandChildren[1].obj.should.not.have.property('subDerp');
+                    parent.children[2].grandChildren[2].should.not.have.property('derp');
+                    parent.children[2].grandChildren[2].should.not.have.property('flerp');
+                    parent.children[2].grandChildren[2].should.have.property('obj');
+                    parent.children[2].grandChildren[2].obj.should.have.property('subFlerp', 'test subFlerp 3 3');
+                    parent.children[2].grandChildren[2].obj.should.not.have.property('subDerp');
+                });
+            });
+        });
     });
 
     describe('method OPTIONS /', function() {
