@@ -56,7 +56,10 @@ mixin props(properties)
                     dl.meta
                         each key in meta
                             dt= key
-                            dd= details[key]
+                            if key === 'errorCodes'
+                                dd= JSON.stringify(details[key], null, 2).slice(3, -2)
+                            else
+                                dd= details[key]
 
 mixin resource(pattern, schema, methods)
     h2
@@ -232,6 +235,7 @@ html
             dl.meta dd{
                 margin: 0 0 0 10.5em;
                 padding: 0.15em 0;
+                white-space: pre;
             }
 
             span.name{
