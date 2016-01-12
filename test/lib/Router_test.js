@@ -1,6 +1,7 @@
 var Router = require('../../lib/Router');
 var Request = require('../../lib/Request');
 var Resource = require('../../lib/Resource');
+var Collection = require('../../lib/Collection');
 var Connection = require('../../lib/Connection');
 var Symlink = require('../../lib/Symlink');
 var HttpStatusCodes = require('../../lib/HttpStatusCodes');
@@ -491,8 +492,8 @@ describe('API Router', function() {
             });
         });
 
-        describe('with collection', function() {
-            it('merges collection of resources', function() {
+        describe('with array', function() {
+            it('merges arrays of resources', function() {
                 this.foosSchema = {
                     $schema: 'http://json-schema.org/draft-04/schema#',
                     type: 'array',
@@ -543,6 +544,68 @@ describe('API Router', function() {
                     foos[1].should.have.property('baz', 'baz 2');
                     foos[2].should.have.property('bar', 'bar 3');
                     foos[2].should.have.property('baz', 'baz 3');
+                });
+            });
+        });
+
+        describe('with collection', function() {
+            it('merges collections of resources', function() {
+                this.foosSchema = {
+                    $schema: 'http://json-schema.org/draft-04/schema#',
+                    type: 'object',
+                    properties: {
+                        items: {
+                            type: 'array',
+                            items: {
+                                type: 'object',
+                                properties: {
+                                    bar: { type: 'string' },
+                                    baz: { type: 'string' }
+                                }
+                            }
+                        }
+                    }
+                };
+
+                this.router.route('/foos', this.foosSchema, {
+                    get: [
+                        {
+                            props: ['bar'],
+                            callback: function() {
+                                var items = [];
+                                for (var i = 1; i <= 3; i++) {
+                                    items.push(new Resource('/foo/' + i, {
+                                        bar: 'bar ' + i
+                                    }));
+                                }
+                                return new Collection('/foos', items);
+                            }
+                        },
+                        {
+                            props: ['baz'],
+                            callback: function() {
+                                var items = [];
+                                for (var i = 1; i <= 3; i++) {
+                                    items.push(new Resource('/foo/' + i, {
+                                        baz: 'baz ' + i
+                                    }));
+                                }
+                                return new Collection('/foos', items);
+                            }
+                        }
+                    ]
+                });
+
+                return this.connection.get('/foos')
+                .then(function(result) {
+                    result.should.have.property('items');
+                    result.items.should.have.lengthOf(3);
+                    result.items[0].should.have.property('bar', 'bar 1');
+                    result.items[0].should.have.property('baz', 'baz 1');
+                    result.items[1].should.have.property('bar', 'bar 2');
+                    result.items[1].should.have.property('baz', 'baz 2');
+                    result.items[2].should.have.property('bar', 'bar 3');
+                    result.items[2].should.have.property('baz', 'baz 3');
                 });
             });
         });
@@ -1508,7 +1571,8 @@ describe('API Router', function() {
             // Stub request
             this.req = {
                 method: 'GET',
-                url: '/foo?props=bar'
+                url: '/foo?props=bar',
+                headers: {}
             };
 
             // Stub response

@@ -5,6 +5,11 @@ module.exports = {
     $schema: 'http://json-schema.org/draft-04/schema#',
     title: 'User Collection',
     description: 'A collection of users.',
-    type: 'array',
-    items: userSchema // Each item in the collection is a user, so reuse the userSchema here
+    type: 'object',
+    properties: {
+        items: {
+            type: 'array',
+            items: userSchema // Each item in the collection is a user, so reuse the userSchema here
+        }
+    }
 };

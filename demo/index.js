@@ -9,6 +9,7 @@ var _ = require('lodash');
 var Promise = require('bluebird');
 var Router = require('../lib');
 var Resource = require('../lib').Resource;
+var Collection = require('../lib').Collection;
 var Symlink = require('../lib').Symlink;
 
 /*** Set up simple HTTP server ***/
@@ -78,9 +79,10 @@ api.route('/users/:userId', userSchema, {
 // Defines the route that manages a collection of users
 api.route('/users', userCollectionSchema, {
     get: function(request, connection) {
-        return mockUserEmails.map(function(user) {
+        var users = mockUserEmails.map(function(user) {
             return new Symlink('/users/' + user.userId);
         });
+        return new Collection('/users', users, 1000);
     },
     post: createUser
 });
