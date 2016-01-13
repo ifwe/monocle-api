@@ -163,6 +163,33 @@ describe('API Router', function() {
             }.bind(this)).to.throw();
         });
 
+        describe('delete', function() {
+            it('does not attempt to validate response with schema', function() {
+                this.deletableSchema = {
+                    type: 'object',
+                    properties: {
+                        foo: {
+                            type: 'string'
+                        }
+                    },
+                    required: ['foo']
+                };
+
+                this.router.route('/deletable', this.deletableSchema, {
+                    delete: function() {
+                        return {
+                            deleted: true
+                        };
+                    }
+                });
+
+                return this.connection.delete('/deletable')
+                .then(function(result) {
+                    result.should.have.property('deleted', true);
+                });
+            });
+        });
+
         describe('errors', function() {
             var httpStatusCodes = new HttpStatusCodes();
             var statuses = httpStatusCodes.getAll();
