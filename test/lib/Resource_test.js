@@ -31,5 +31,10 @@ describe('Resource', function() {
             this.resource.should.have.property('foo', this.data.foo);
             this.resource.should.have.property('bar', this.data.bar);
         });
+
+        it('does not have $expires property if not specified', function() {
+            var resource = new Resource(this.id, this.data);
+            resource.should.not.have.property('$expires');
+        });
     });
 });
