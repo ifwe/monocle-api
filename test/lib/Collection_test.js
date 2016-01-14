@@ -179,6 +179,33 @@ describe('Collection', function() {
         });
     });
 
+    describe('offset', function() {
+        it('can be retreived', function() {
+            expect(this.collection.getOffset()).to.be.undefined;
+        });
+
+        it('can be overwritten', function() {
+            this.collection.setOffset(10);
+            this.collection.getOffset().should.equal(10);
+        });
+
+        [
+            {},
+            [],
+            -1,
+            function() {},
+            null,
+            true,
+            false
+        ].forEach(function(invalidOffset) {
+            it('throws an error if set to ' + JSON.stringify(invalidOffset), function() {
+                expect(function() {
+                    this.collection.setOffset(invalidOffset);
+                }.bind(this)).to.throw();
+            });
+        });
+    });
+
     describe('.pop()', function() {
         it('returns the last item', function() {
             this.collection.pop().should.equal(2);
