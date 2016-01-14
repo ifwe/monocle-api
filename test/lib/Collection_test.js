@@ -2,24 +2,24 @@ var Collection = require('../../lib/Collection');
 
 describe('Collection', function() {
     beforeEach(function() {
-        this.resourceId = '/my-resources';
+        this.id = '/my-resources';
         this.items = [0, 1, 2];
         this.expires = 1000;
-        this.collection = new Collection(this.resourceId, this.items, this.expires);
+        this.collection = new Collection(this.id, this.items, this.expires);
     });
 
     describe('resource id', function() {
         it('can be retrieved', function() {
-            this.collection.getResourceId().should.equal(this.resourceId);
+            this.collection.getId().should.equal(this.id);
         });
 
         [
             '/anything',
             undefined
-        ].forEach(function(validResourceId) {
-            it('can be set to ' + JSON.stringify(validResourceId), function() {
-                this.collection.setResourceId(validResourceId);
-                expect(this.collection.getResourceId()).to.equal(validResourceId);
+        ].forEach(function(validId) {
+            it('can be set to ' + JSON.stringify(validId), function() {
+                this.collection.setId(validId);
+                expect(this.collection.getId()).to.equal(validId);
             });
         });
 
@@ -32,10 +32,10 @@ describe('Collection', function() {
             null,
             true,
             false
-        ].forEach(function(invalidResourceId) {
-            it('throws an error if set to ' + JSON.stringify(invalidResourceId), function() {
+        ].forEach(function(invalidId) {
+            it('throws an error if set to ' + JSON.stringify(invalidId), function() {
                 expect(function() {
-                    this.collection.setResourceId(invalidResourceId);
+                    this.collection.setId(invalidId);
                 }.bind(this)).to.throw();
             });
         });
@@ -232,13 +232,13 @@ describe('Collection', function() {
             }.bind(this);
         });
 
-        it('does not contain $resourceId property if not set', function() {
-            this.objectify().should.not.have.property('$resourceId');
+        it('does not contain $id property if not set', function() {
+            this.objectify().should.not.have.property('$id');
         });
 
-        it('contains $resourceId property if set', function() {
-            this.collection.setResourceId('/foos')
-            this.objectify().should.have.property('$resourceId', '/foos');
+        it('contains $id property if set', function() {
+            this.collection.setId('/foos')
+            this.objectify().should.have.property('$id', '/foos');
         });
 
         it('does not contain $expires property if not set', function() {
