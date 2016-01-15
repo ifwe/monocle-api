@@ -519,6 +519,182 @@ describe('API Router', function() {
             });
         });
 
+        describe('with collection of symlinks', function() {
+            beforeEach(function() {
+                this.itemSchema = {
+                    type: 'object',
+                    properties: {
+                        foo: { type: 'string' },
+                        bar: { type: 'string' }
+                    }
+                };
+                this.collectionSchema = {
+                    type: 'object',
+                    properties: {
+                        items: {
+                            type: 'array',
+                            items: this.itemSchema
+                        }
+                    }
+                };
+
+                this.router.route('/collection', this.collectionSchema, {
+                    get: function() {
+                        var items = [];
+                        for (var i = 1; i <= 3; i++) {
+                            items.push(new Symlink('/collection/' + i));
+                        }
+                        return new Collection('/collection')
+                        .setItems(items);
+                    }
+                });
+
+                this.itemFooCallback = sinon.spy(function(request) {
+                    var id = request.getParam('id');
+                    return new Resource('/collection/' + id, {
+                        foo: 'foo ' + id
+                    });
+                });
+
+                this.itemBarCallback = sinon.spy(function(request) {
+                    var id = request.getParam('id');
+                    return new Resource('/collection/' + id, {
+                        bar: 'bar ' + id
+                    });
+                });
+
+                this.router.route('/collection/:id', this.itemSchema, {
+                    get: [
+                        {
+                            props: ['foo'],
+                            callback: this.itemFooCallback
+                        },
+                        {
+                            props: ['bar'],
+                            callback: this.itemBarCallback
+                        }
+                    ]
+                });
+            });
+
+            it('calls all symlink callbacks if no props specified', function() {
+                return this.connection.get('/collection')
+                .then(function(result) {
+                    this.itemFooCallback.called.should.be.true;
+                    this.itemBarCallback.called.should.be.true;
+                }.bind(this));
+            });
+
+            it('calls only required symlink callback based on props specified', function() {
+                return this.connection.get('/collection', {
+                    props: ['items@foo']
+                })
+                .then(function(result) {
+                    this.itemFooCallback.called.should.be.true;
+                    this.itemBarCallback.called.should.be.false;
+                }.bind(this));
+            });
+        });
+
+        describe('with deeply nested collections of symlinks', function() {
+            beforeEach(function() {
+                this.grandchildSchema = {
+                    type: 'object',
+                    properties: {
+                        foo: { type: 'string' },
+                        bar: { type: 'string' }
+                    }
+                };
+
+                this.childSchema = {
+                    type: 'object',
+                    properties: {
+                        children: { type: 'array', items: this.grandchildSchema },
+                    }
+                };
+
+                this.childrenSchema = {
+                    type: 'object',
+                    properties: {
+                        items: {
+                            type: 'array',
+                            items: this.childSchema
+                        }
+                    }
+                };
+
+                this.router.route('/children', this.childrenSchema, {
+                    get: function() {
+                        var children = [];
+                        for (var i = 1; i <= 3; i++) {
+                            children.push(new Symlink('/children/' + i));
+                        }
+                        return new Collection('/children')
+                        .setItems(children);
+                    }
+                });
+
+                this.router.route('/children/:childId', this.childSchema, {
+                    get: function(request) {
+                        var childId = request.getParam('childId');
+                        var grandchildren = [];
+                        for (var i = 1; i <= 3; i++) {
+                            grandchildren.push(new Symlink('/children/' + childId + '/' + i));
+                        }
+                        return new Collection('/children/' + childId)
+                        .setItems(grandchildren);
+                    }
+                });
+
+                this.grandchildFooCallback = sinon.spy(function(request) {
+                    var childId = request.getParam('childId');
+                    var grandchildId = request.getParam('grandchildId');
+                    return new Resource('/children/' + childId + '/' + grandchildId, {
+                        foo: 'foo ' + childId + ' ' + grandchildId
+                    });
+                });
+
+                this.grandchildBarCallback = sinon.spy(function(request) {
+                    var childId = request.getParam('childId');
+                    var grandchildId = request.getParam('grandchildId');
+                    return new Resource('/children/' + childId + '/' + grandchildId, {
+                        bar: 'bar ' + childId + ' ' + grandchildId
+                    });
+                });
+
+                this.router.route('/children/:childId/:grandchildId', this.grandchildSchema, {
+                    get: [
+                        {
+                            props: ['foo'],
+                            callback: this.grandchildFooCallback
+                        },
+                        {
+                            props: ['bar'],
+                            callback: this.grandchildBarCallback
+                        }
+                    ]
+                });
+            });
+
+            it('calls all symlink callbacks if no props specified', function() {
+                return this.connection.get('/children')
+                .then(function(result) {
+                    this.grandchildFooCallback.called.should.be.true;
+                    this.grandchildBarCallback.called.should.be.true;
+                }.bind(this));
+            });
+
+            it('calls only required symlink callback based on props specified', function() {
+                return this.connection.get('/children', {
+                    props: ['items@items@foo']
+                })
+                .then(function(result) {
+                    this.grandchildFooCallback.called.should.be.true;
+                    this.grandchildBarCallback.called.should.be.false;
+                }.bind(this));
+            });
+        });
+
         describe('with array', function() {
             it('merges arrays of resources', function() {
                 this.foosSchema = {
