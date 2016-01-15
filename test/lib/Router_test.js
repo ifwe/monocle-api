@@ -545,6 +545,8 @@ describe('API Router', function() {
                             items.push(new Symlink('/collection/' + i));
                         }
                         return new Collection('/collection')
+                        .setTotal(100)
+                        .setExpires(1000)
                         .setItems(items);
                     }
                 });
@@ -592,6 +594,15 @@ describe('API Router', function() {
                 .then(function(result) {
                     this.itemFooCallback.called.should.be.true;
                     this.itemBarCallback.called.should.be.false;
+                }.bind(this));
+            });
+
+            it('can get just total from a cacheable collection', function() {
+                return this.connection.get('/collection', {
+                    props: ['total']
+                })
+                .then(function(result) {
+                    result.should.have.property('total', 100);
                 }.bind(this));
             });
         });
