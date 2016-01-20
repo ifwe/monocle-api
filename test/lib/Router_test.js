@@ -190,6 +190,46 @@ describe('API Router', function() {
             });
         });
 
+        describe('post to collection', function() {
+            beforeEach(function() {
+                this.collectionSchema = {
+                    type: 'object',
+                    properties: {
+                        items: {
+                            type: 'array',
+                            items: {
+                                type: 'object',
+                                properties: {
+                                    foo: { type: 'string' },
+                                    bar: { type: 'string' }
+                                }
+                            }
+                        }
+                    }
+                };
+
+                this.postSpy = sinon.spy(function(request, params) {
+                    return { $httpStatus: 201 };
+                });
+
+                this.router.route('/collection', this.collectionSchema, {
+                    post: this.postSpy
+                });
+            });
+
+            it('uses item schema for validation', function() {
+                var item = {
+                    foo: 'test foo',
+                    bar: 'test bar'
+                };
+                return this.connection.post('/collection', {
+                    resource: item
+                }).then(function(result) {
+                    result.should.be.ok;
+                });
+            });
+        });
+
         describe('errors', function() {
             var httpStatusCodes = new HttpStatusCodes();
             var statuses = httpStatusCodes.getAll();
