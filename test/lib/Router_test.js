@@ -28,7 +28,9 @@ describe('API Router', function() {
                 type: 'object',
                 properties: {
                     foo: { type: 'string' },
-                    nullable: { type: ['string', 'null'] }
+                    nullable: { type: ['string', 'null'] },
+                    param1: { type: 'integer' },
+                    param2: { type: 'string' }
                 }
             };
             this.getFooSpy = sinon.spy(function(request, connection) {
@@ -79,11 +81,12 @@ describe('API Router', function() {
                 });
             });
 
-            it('resolves with object from callback with route having a parameter in the middle of the url', function(done) {
-                this.router.route('/foo/:fooId/test', this.fooSchema, {
+            it('resolves with object from callback with route having a parameter in the middle of the url', function() {
+                this.router.route(['/foo/:fooId/test', 'param1&param2'], this.fooSchema, {
                     get: this.getParamsFoo
                 });
-                this.connection.get('/foo/123/test', {
+
+                return this.connection.get('/foo/123/test', {
                   query: { param1: 1, param2: 'test' }
                 })
                 .then(function(foo) {
@@ -93,15 +96,15 @@ describe('API Router', function() {
                         param1: 1,
                         param2: 'test'
                     });
-                }.bind(this))
-                .finally(done);
+                }.bind(this));
             });
 
-            it('resolves with object from callback with route having a parameter in end of the url', function(done) {
-                this.router.route('/foo/test/:fooId', this.fooSchema, {
+            it('resolves with object from callback with route having a parameter in end of the url', function() {
+                this.router.route(['/foo/test/:fooId', 'param1&param2'], this.fooSchema, {
                     get: this.getParamsFoo
                 });
-                this.connection.get('/foo/test/123', {
+
+                return this.connection.get('/foo/test/123', {
                   query: { param1: 1, param2: 'test' }
                 })
                 .then(function(foo) {
@@ -111,8 +114,69 @@ describe('API Router', function() {
                         param1: 1,
                         param2: 'test'
                     });
+                }.bind(this));
+            });
+
+            it('excludes query string parameters that are not defined on the route', function() {
+                this.router.route(['/foo/test/:fooId', 'param1'], this.fooSchema, {
+                    get: this.getParamsFoo
+                });
+
+                return this.connection.get('/foo/test/123', {
+                  query: { param1: 1, param2: 'test' }
+                })
+                .then(function(foo) {
+                    foo.should.deep.equal({
+                        id_query: '123',
+                        id_param: '123',
+                        param1: 1
+                    });
+                }.bind(this));
+            });
+
+            it('throws an error when query string parameter does not validate', function() {
+                this.router.route(['/foo/test/:fooId', 'param1'], this.fooSchema, {
+                    get: this.getParamsFoo
+                });
+
+                return this.connection.get('/foo/test/123', {
+                  query: { param1: 'not an integer' }
+                })
+                .then(function(foo) {
+                    return Promise.reject("Not expecting an error");
                 }.bind(this))
-                .finally(done);
+                .catch(function(error) {
+                    error.should.be.ok;
+                    error.should.have.property('code', 422);
+                    error.properties[0].should.have.property('code', 105);
+                });
+            });
+
+            it('uses default value if not provided in request', function() {
+                this.router.route(['/foo/test/:fooId', 'param1=123'], this.fooSchema, {
+                    get: this.getParamsFoo
+                });
+
+                return this.connection.get('/foo/test/123', {
+                  query: { /* empty */ }
+                })
+                .then(function(foo) {
+                    foo.should.have.property('param1', 123);
+                }.bind(this));
+            });
+
+            it('uses `undefined` value if not provided in request and no default', function() {
+                this.router.route(['/foo/test/:fooId', 'param1&param2'], this.fooSchema, {
+                    get: this.getParamsFoo
+                });
+
+                return this.connection.get('/foo/test/123', {
+                  query: { /* empty */ }
+                })
+                .then(function(foo) {
+                    expect(foo.param1).to.be.undefined;
+                    expect(foo.param2).to.be.undefined;
+                }.bind(this));
             });
         });
 
@@ -1784,21 +1848,23 @@ describe('API Router', function() {
             });
 
             // Configure router
-            this.router.route('/foo', {
+            this.router.route(['/foo', 'test1'], {
                 type: 'object',
                 properties: {
-                    bar: { type: 'string' }
+                    bar: { type: 'string' },
+                    test1: { type: 'string' }
                 }
             }, {
                 get: this.fooGetSpy,
                 post: this.fooPostSpy
             });
 
-            this.router.route('/derp', {
+            this.router.route(['/derp', 'test2'], {
                 type: 'object',
                 properties: {
                     flerp: { type: 'string' },
-                    fleep: { type: 'string' }
+                    fleep: { type: 'string' },
+                    test2: { type: 'string' }
                 }
             }, {
                 get: this.derpGetSpy,
@@ -2053,7 +2119,8 @@ describe('API Router', function() {
                     obj.schema.should.deep.equal({
                         type: 'object',
                         properties: {
-                            bar: { type: 'string' }
+                            bar: { type: 'string' },
+                            test1: { type: 'string' }
                         }
                     });
                     done();

@@ -9,8 +9,11 @@
 
             case 'integer':
             case 'number':
-                var min = details.minimum;
-                var max = details.maximum;
+                var min = parseInt(details.minimum);
+                var max = parseInt(details.maximum);
+                if (isNaN(min) && isNaN(max)) return 123;
+                if (isNaN(min) && !isNaN(max)) return max;
+                if (!isNaN(min) && isNaN(max)) return min;
                 return Math.ceil(Math.random() * ((max || 100) - min)) + min;
 
             case 'boolean':
@@ -61,7 +64,7 @@ mixin props(properties)
                             else
                                 dd= details[key]
 
-mixin resource(pattern, schema, methods)
+mixin resource(pattern, schema, methods, query)
     h2
         = schema.title || pattern
         span(class="type type-#{schema.type}")= schema.type
@@ -78,6 +81,15 @@ mixin resource(pattern, schema, methods)
             each method in ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
                 if -1 !== methods.indexOf(method)
                     span.method(class="method-#{method.toLowerCase()}")= method
+
+    if query
+        h3.query
+            | GET Query Parameters:
+            each value, key in query
+                span.query-param
+                    = key
+                    if value !== ''
+                        span.query-param-default= ' (' + value + ')'
 
     if schema.properties
         h3 Properties:
@@ -166,6 +178,21 @@ html
                 border-radius: 0.35em;
                 border: 2px solid rgba(255, 255, 255, 0.75);
                 font-family: monaco, monospace;
+                box-shadow: 0 0.3rem 0.2rem -0.2rem rgba(0, 0, 0, 0.25),
+                    inset 0 2em 1.5em -1em rgba(255, 255, 255, 0.25);
+            }
+
+            .query-param{
+                display: inline-block;
+                margin: 0 0 0 0.5em;
+                padding: 0.25em 0.5em;
+                color: #fff;
+                font-weight: bold;
+                font-size: 0.85rem;
+                border-radius: 0.35em;
+                border: 2px solid rgba(255, 255, 255, 0.75);
+                font-family: monaco, monospace;
+                background: #3a3;
                 box-shadow: 0 0.3rem 0.2rem -0.2rem rgba(0, 0, 0, 0.25),
                     inset 0 2em 1.5em -1em rgba(255, 255, 255, 0.25);
             }
@@ -317,8 +344,9 @@ html
                 - pattern = route.pattern
                 - schema = route.schema
                 - methods = route.methods
+                - query = route.query
                 .resource(id=route.pattern)
-                    +resource(pattern, schema, methods)
+                    +resource(pattern, schema, methods, query)
 
                     h3.sample Sample Response:
                     pre.response
