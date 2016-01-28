@@ -1,5 +1,5 @@
 var CollectionCache = require('../../lib/CollectionCache');
-var Collection = require('../../lib/Collection');
+var OffsetPaginator = require('../../lib/OffsetPaginator');
 var Request = require('../../lib/Request');
 var Resource = require('../../lib/Resource');
 var Symlink = require('../../lib/Symlink');
@@ -110,7 +110,7 @@ describe('CollectionCache', function() {
 
     describe('with collection of resources', function() {
         beforeEach(function() {
-            this.collection = new Collection('/users', [
+            this.collection = new OffsetPaginator('/users', [
                 // items are intentionally not in order
                 new Resource('/users/2', {}, 60000),
                 new Resource('/users/3', {}, 60000),
@@ -127,7 +127,7 @@ describe('CollectionCache', function() {
 
     describe('with collection of symlinks', function() {
         beforeEach(function() {
-            this.collection = new Collection('/users', [
+            this.collection = new OffsetPaginator('/users', [
                 // items are intentionally not in order
                 new Symlink('/users/2'),
                 new Symlink('/users/3'),
@@ -144,7 +144,7 @@ describe('CollectionCache', function() {
 
     describe('with collection of objects that have no identity', function() {
         beforeEach(function() {
-            this.collection = new Collection('/users', [
+            this.collection = new OffsetPaginator('/users', [
                 // items are intentionally not in order
                 {foo: 'test foo 2'},
                 {foo: 'test foo 3'},
