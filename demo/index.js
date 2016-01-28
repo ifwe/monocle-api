@@ -9,7 +9,7 @@ var _ = require('lodash');
 var Promise = require('bluebird');
 var Router = require('../lib');
 var Resource = require('../lib').Resource;
-var Collection = require('../lib').Collection;
+var OffsetPaginator = require('../lib').OffsetPaginator;
 var Symlink = require('../lib').Symlink;
 
 /*** Set up simple HTTP server ***/
@@ -245,7 +245,7 @@ function getUsers(request, connection) {
         return new Symlink('/users/' + user.userId);
     });
 
-    return new Collection('/users')
+    return new OffsetPaginator('/users')
     .setItems(users)
     .setExpires(1000)
     .setLimit(limit)

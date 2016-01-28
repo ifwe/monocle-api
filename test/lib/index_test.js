@@ -9,8 +9,12 @@ describe('Module', function() {
         Router.Resource.should.be.a('function');
     });
 
-    it('exposes .Collection', function() {
-        Router.Collection.should.be.a('function');
+    it('exposes .OffsetPaginator', function() {
+        Router.OffsetPaginator.should.be.a('function');
+    });
+
+    it('exposes .CursorPaginator', function() {
+        Router.CursorPaginator.should.be.a('function');
     });
 
     it('exposes .Request', function() {
