@@ -179,6 +179,25 @@ describe('CursorPaginator', function() {
         });
     });
 
+    describe('cursor', function() {
+        it('can be retreived', function() {
+            expect(this.paginator.getCursor()).to.be.undefined;
+        });
+
+        it('can be overwritten', function() {
+            this.paginator.setCursor('abc123');
+            this.paginator.getCursor().should.equal('abc123');
+            this.paginator.cursor.should.equal('abc123')
+        });
+
+        it('can be cleared', function() {
+            this.paginator.setCursor('abc123');
+            this.paginator.getCursor().should.equal('abc123');
+            this.paginator.setCursor(undefined);
+            expect(this.paginator.getCursor()).to.be.undefined;
+        });
+    });
+
     describe('nextCursor', function() {
         it('can be retreived', function() {
             expect(this.paginator.getNextCursor()).to.be.undefined;
@@ -187,6 +206,7 @@ describe('CursorPaginator', function() {
         it('can be overwritten', function() {
             this.paginator.setNextCursor('abc123');
             this.paginator.getNextCursor().should.equal('abc123');
+            this.paginator.nextCursor.should.equal('abc123')
         });
 
         it('can be cleared', function() {
