@@ -1,7 +1,7 @@
 var Router = require('../../lib/Router');
 var Request = require('../../lib/Request');
 var Resource = require('../../lib/Resource');
-var Collection = require('../../lib/Collection');
+var OffsetPaginator = require('../../lib/OffsetPaginator');
 var Connection = require('../../lib/Connection');
 var Symlink = require('../../lib/Symlink');
 var HttpStatusCodes = require('../../lib/HttpStatusCodes');
@@ -648,7 +648,7 @@ describe('API Router', function() {
                         for (var i = 1; i <= 3; i++) {
                             items.push(new Symlink('/collection/' + i));
                         }
-                        return new Collection('/collection')
+                        return new OffsetPaginator('/collection')
                         .setTotal(100)
                         .setExpires(1000)
                         .setItems(items);
@@ -744,7 +744,7 @@ describe('API Router', function() {
                         for (var i = 1; i <= 3; i++) {
                             children.push(new Symlink('/children/' + i));
                         }
-                        return new Collection('/children')
+                        return new OffsetPaginator('/children')
                         .setItems(children);
                     }
                 });
@@ -756,7 +756,7 @@ describe('API Router', function() {
                         for (var i = 1; i <= 3; i++) {
                             grandchildren.push(new Symlink('/children/' + childId + '/' + i));
                         }
-                        return new Collection('/children/' + childId)
+                        return new OffsetPaginator('/children/' + childId)
                         .setItems(grandchildren);
                     }
                 });
@@ -896,7 +896,7 @@ describe('API Router', function() {
                                         bar: 'bar ' + i
                                     }));
                                 }
-                                return new Collection('/foos', items);
+                                return new OffsetPaginator('/foos', items);
                             }
                         },
                         {
@@ -908,7 +908,7 @@ describe('API Router', function() {
                                         baz: 'baz ' + i
                                     }));
                                 }
-                                return new Collection('/foos', items);
+                                return new OffsetPaginator('/foos', items);
                             }
                         }
                     ]
