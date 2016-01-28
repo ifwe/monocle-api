@@ -77,13 +77,8 @@ api.route('/users/:userId', userSchema, {
 });
 
 // Defines the route that manages a collection of users
-api.route('/users', userCollectionSchema, {
-    get: function(request, connection) {
-        var users = mockUserEmails.map(function(user) {
-            return new Symlink('/users/' + user.userId);
-        });
-        return new Collection('/users', users, 1000);
-    },
+api.route(['/users', 'limit=10&offset=0&search'], userCollectionSchema, {
+    get: getUsers,
     post: createUser
 });
 
@@ -226,6 +221,35 @@ function putUserEmailInfo(request) {
     var userId = request.getParam('userId');
     var resource = request.getResource();
     return new Resource('/users/' + userId, resource, 3600);
+}
+
+// Gets all users
+function getUsers(request, connection) {
+    // The limit is guaranteed to be an integer and within range, or default value
+    var limit = request.getQuery('limit');
+
+    // The offset is guaranteed to be an integer and within range, or default value
+    var offset = request.getQuery('offset');
+
+    var search = request.getQuery('search');
+
+    var users = mockUserBasicInfo.slice(0); // Make a copy of users
+    if (search) {
+        search = search.toLowerCase();
+        users = users.filter(function(user) {
+            return (-1 !== user.displayName.toLowerCase().indexOf(search));
+        });
+    }
+
+    var users = users.slice(offset, offset + limit).map(function(user) {
+        return new Symlink('/users/' + user.userId);
+    });
+
+    return new Collection('/users')
+    .setItems(users)
+    .setExpires(1000)
+    .setLimit(limit)
+    .setOffset(offset);
 }
 
 // Create a user
