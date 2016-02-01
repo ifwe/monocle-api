@@ -624,92 +624,186 @@ describe('API Router', function() {
         });
 
         describe('with collection of symlinks', function() {
-            beforeEach(function() {
-                this.itemSchema = {
-                    type: 'object',
-                    properties: {
-                        foo: { type: 'string' },
-                        bar: { type: 'string' }
-                    }
-                };
-                this.collectionSchema = {
-                    type: 'object',
-                    properties: {
-                        items: {
-                            type: 'array',
-                            items: this.itemSchema
-                        }
-                    }
-                };
+            describe('nested in object', function() {
+                    beforeEach(function() {
+                        this.itemSchema = {
+                            type: 'object',
+                            properties: {
+                                foo: { type: 'string' },
+                                bar: { type: 'string' }
+                            }
+                        };
+                        this.collectionSchema = {
+                            type: 'object',
+                            properties: {
+                                items: {
+                                    type: 'array',
+                                    items: {
+                                        user: this.itemSchema
+                                    }
+                                }
+                            }
+                        };
 
-                this.router.route('/collection', this.collectionSchema, {
-                    get: function() {
-                        var items = [];
-                        for (var i = 1; i <= 3; i++) {
-                            items.push(new Symlink('/collection/' + i));
-                        }
-                        return new OffsetPaginator('/collection')
-                        .setTotal(100)
-                        .setExpires(1000)
-                        .setItems(items);
-                    }
-                });
+                        this.router.route('/collection', this.collectionSchema, {
+                            get: function() {
+                                var items = [];
+                                for (var i = 1; i <= 1; i++) {
+                                    items.push({ user: new Symlink('/collection/' + i) });
+                                }
+                                return new OffsetPaginator('/collection')
+                                .setTotal(100)
+                                .setExpires(1000)
+                                .setItems(items);
+                            }
+                        });
 
-                this.itemFooCallback = sinon.spy(function(request) {
-                    var id = request.getParam('id');
-                    return new Resource('/collection/' + id, {
-                        foo: 'foo ' + id
+                        this.itemFooCallback = sinon.spy(function(request) {
+                            var id = request.getParam('id');
+                            return new Resource('/collection/' + id, {
+                                foo: 'foo ' + id
+                            });
+                        });
+
+                        this.itemBarCallback = sinon.spy(function(request) {
+                            var id = request.getParam('id');
+                            return new Resource('/collection/' + id, {
+                                bar: 'bar ' + id
+                            });
+                        });
+
+                        this.router.route('/collection/:id', this.itemSchema, {
+                            get: [
+                                {
+                                    props: ['foo'],
+                                    callback: this.itemFooCallback
+                                },
+                                {
+                                    props: ['bar'],
+                                    callback: this.itemBarCallback
+                                }
+                            ]
+                        });
+                    });
+
+                    it('calls all symlink callbacks if no props specified', function() {
+                        return this.connection.get('/collection')
+                        .then(function(result) {
+                            this.itemFooCallback.called.should.be.true;
+                            this.itemBarCallback.called.should.be.true;
+                        }.bind(this));
+                    });
+
+                    it('calls only required symlink callback based on props specified', function() {
+                        return this.connection.get('/collection', {
+                            props: ['items@user.foo']
+                        })
+                        .then(function(result) {
+                            this.itemFooCallback.called.should.be.true;
+                            this.itemBarCallback.called.should.be.false;
+                        }.bind(this));
+                    });
+
+                    it('can get just total from a cacheable collection', function() {
+                        return this.connection.get('/collection', {
+                            props: ['total']
+                        })
+                        .then(function(result) {
+                            result.should.have.property('total', 100);
+                        }.bind(this));
                     });
                 });
 
-                this.itemBarCallback = sinon.spy(function(request) {
-                    var id = request.getParam('id');
-                    return new Resource('/collection/' + id, {
-                        bar: 'bar ' + id
+                describe('not nested', function() {
+                    beforeEach(function() {
+                        this.itemSchema = {
+                            type: 'object',
+                            properties: {
+                                foo: { type: 'string' },
+                                bar: { type: 'string' }
+                            }
+                        };
+                        this.collectionSchema = {
+                            type: 'object',
+                            properties: {
+                                items: {
+                                    type: 'array',
+                                    items: this.itemSchema
+                                }
+                            }
+                        };
+
+                        this.router.route('/collection', this.collectionSchema, {
+                            get: function() {
+                                var items = [];
+                                for (var i = 1; i <= 1; i++) {
+                                    items.push(new Symlink('/collection/' + i));
+                                }
+                                return new OffsetPaginator('/collection')
+                                .setTotal(100)
+                                .setExpires(1000)
+                                .setItems(items);
+                            }
+                        });
+
+                        this.itemFooCallback = sinon.spy(function(request) {
+                            var id = request.getParam('id');
+                            return new Resource('/collection/' + id, {
+                                foo: 'foo ' + id
+                            });
+                        });
+
+                        this.itemBarCallback = sinon.spy(function(request) {
+                            var id = request.getParam('id');
+                            return new Resource('/collection/' + id, {
+                                bar: 'bar ' + id
+                            });
+                        });
+
+                        this.router.route('/collection/:id', this.itemSchema, {
+                            get: [
+                                {
+                                    props: ['foo'],
+                                    callback: this.itemFooCallback
+                                },
+                                {
+                                    props: ['bar'],
+                                    callback: this.itemBarCallback
+                                }
+                            ]
+                        });
+                    });
+
+                    it('calls all symlink callbacks if no props specified', function() {
+                        return this.connection.get('/collection')
+                        .then(function(result) {
+                            this.itemFooCallback.called.should.be.true;
+                            this.itemBarCallback.called.should.be.true;
+                        }.bind(this));
+                    });
+
+                    it('calls only required symlink callback based on props specified', function() {
+                        return this.connection.get('/collection', {
+                            props: ['items@foo']
+                        })
+                        .then(function(result) {
+                            this.itemFooCallback.called.should.be.true;
+                            this.itemBarCallback.called.should.be.false;
+                        }.bind(this));
+                    });
+
+                    it('can get just total from a cacheable collection', function() {
+                        return this.connection.get('/collection', {
+                            props: ['total']
+                        })
+                        .then(function(result) {
+                            result.should.have.property('total', 100);
+                        }.bind(this));
                     });
                 });
+        })
 
-                this.router.route('/collection/:id', this.itemSchema, {
-                    get: [
-                        {
-                            props: ['foo'],
-                            callback: this.itemFooCallback
-                        },
-                        {
-                            props: ['bar'],
-                            callback: this.itemBarCallback
-                        }
-                    ]
-                });
-            });
 
-            it('calls all symlink callbacks if no props specified', function() {
-                return this.connection.get('/collection')
-                .then(function(result) {
-                    this.itemFooCallback.called.should.be.true;
-                    this.itemBarCallback.called.should.be.true;
-                }.bind(this));
-            });
-
-            it('calls only required symlink callback based on props specified', function() {
-                return this.connection.get('/collection', {
-                    props: ['items@foo']
-                })
-                .then(function(result) {
-                    this.itemFooCallback.called.should.be.true;
-                    this.itemBarCallback.called.should.be.false;
-                }.bind(this));
-            });
-
-            it('can get just total from a cacheable collection', function() {
-                return this.connection.get('/collection', {
-                    props: ['total']
-                })
-                .then(function(result) {
-                    result.should.have.property('total', 100);
-                }.bind(this));
-            });
-        });
 
         describe('with deeply nested collections of symlinks', function() {
             beforeEach(function() {
