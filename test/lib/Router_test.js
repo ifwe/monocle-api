@@ -319,6 +319,216 @@ describe('API Router', function() {
             });
 
             describe('client errors', function() {
+                describe('within collections', function() {
+
+                    beforeEach(function() {
+                        this.collectionSchema = {
+                            type: 'object',
+                            properties: {
+                                userId: {
+                                    type: 'string',
+                                    errorCodes: [
+                                        {
+                                            code: 1000,
+                                            error: 'TOO_SHORT',
+                                            message: 'Property is too short'
+                                        }
+                                    ]
+                                },
+                                nested: {
+                                    type: 'object',
+                                    properties: {
+                                        nested2: {
+                                            type: 'object',
+                                            properties: {
+                                                items: {
+                                                    type: 'array',
+                                                    items: {
+                                                        type: 'object',
+                                                        properties: {
+                                                            nestedArray2: {
+                                                                type: 'string',
+                                                                errorCodes: [
+                                                                    {
+                                                                        code: 1000,
+                                                                        error: 'TOO_SHORT',
+                                                                        message: 'Property is too short'
+                                                                    }
+                                                                ]
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                foo2: {
+                                                   type: 'string',
+                                                    errorCodes: [
+                                                        {
+                                                            code: 1000,
+                                                            error: 'TOO_SHORT',
+                                                            message: 'Property is too short'
+                                                        }
+                                                    ]
+                                                },
+                                                nested3: {
+                                                    type: 'object',
+                                                    properties: {
+                                                        foo3: {
+                                                          type: 'string',
+                                                            errorCodes: [
+                                                                {
+                                                                    code: 1000,
+                                                                    error: 'TOO_SHORT',
+                                                                    message: 'Property is too short'
+                                                                }
+                                                            ]
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                items: {
+                                    type: 'array',
+                                    items: {
+                                        type: 'object',
+                                        properties: {
+                                            nested4: {
+                                                type: 'object',
+                                                properties: {
+                                                    foo4: {
+                                                      type: 'string',
+                                                        errorCodes: [
+                                                            {
+                                                                code: 1000,
+                                                                error: 'TOO_SHORT',
+                                                                message: 'Property is too short'
+                                                            }
+                                                        ]
+                                                    },
+                                                    bar4: {
+                                                        type: 'object',
+                                                        properties: {
+                                                            items: {
+                                                                type: 'array',
+                                                                items: {
+                                                                    type: 'object',
+                                                                    properties: {
+                                                                        nestedArray4: {
+                                                                            type: 'string',
+                                                                            errorCodes: [
+                                                                                {
+                                                                                    code: 1000,
+                                                                                    error: 'TOO_SHORT',
+                                                                                    message: 'Property is too short'
+                                                                                }
+                                                                            ]
+                                                                        }
+                                                                    }
+                                                                }
+                                                            },
+                                                            barNested4: {
+                                                                type: 'string',
+                                                                errorCodes: [
+                                                                    {
+                                                                        code: 1000,
+                                                                        error: 'TOO_SHORT',
+                                                                        message: 'Property is too short'
+                                                                    }
+                                                                ]
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            foo: {
+                                                type: 'string',
+                                                errorCodes: [
+                                                    {
+                                                        code: 1000,
+                                                        error: 'TOO_SHORT',
+                                                        message: 'Property is too short'
+                                                    }
+                                                ]
+                                            },
+                                            bar: { type: 'string' }
+                                        }
+                                    }
+                                }
+                            }
+                        };
+                    });
+                    [
+                        'items@foo',
+                        'items@nested4.foo4',
+                        'items@nested4.bar4.barNested4',
+                        'items@nested4.bar4.items@nestedArray4',
+                        'nested.nested2.items@nestedArray2',
+                        'userId',
+                        'nested.nested2.foo2',
+                        'nested.nested2.nested3.foo3',
+                    ]
+                    .forEach(function(data) {
+                        it('returns error details for property ' + data , function() {
+                            this.router.route('/collection', this.collectionSchema, {
+                                post: function(request, connection) {
+                                    // Return a property error
+                                    return request.propertyError(data, 1000);
+                                }
+                            });
+
+                            return this.connection.post('/collection', { /* anything */ })
+                            .then(function(error) {
+                                return Promise.reject('Did not expect success');
+                            })
+                            .catch(function(error) {
+                                error.should.be.ok;
+                                error.should.have.property('properties');
+                                error.properties.should.be.an('array');
+                                error.properties.should.have.lengthOf(1);
+                                error.properties[0].should.deep.equal({
+                                    property: data,
+                                    code: 1000,
+                                    error: 'TOO_SHORT',
+                                    message: 'Property is too short'
+                                });
+                            }.bind(this));
+                        });
+                    });
+
+                    [
+                        'items@notexist',
+                        'items@nested4.notexist',
+                        'items@nested4.bar4.notexist',
+                        'items@nested4.bar4.items@notexist',
+                        'nested.nested2.items@notexist',
+                        'notexist',
+                        'nested.nested2.notexist',
+                        'nested.nested2.nested3.notexist',
+                    ]
+                    .forEach(function(data) {
+                        it('returns empty properties array for' + data +  ' that doesn\'t exist', function() {
+                            this.router.route('/collection', this.collectionSchema, {
+                                post: function(request, connection) {
+                                    // Return a property error
+                                    return request.propertyError(data, 1000);
+                                }
+                            });
+
+                            return this.connection.post('/collection', { /* anything */ })
+                            .then(function(error) {
+                                return Promise.reject('Did not expect success');
+                            })
+                            .catch(function(error) {
+                                error.should.be.ok;
+                                error.should.have.property('properties');
+                                error.properties.should.be.empty;
+
+                            }.bind(this));
+                        });
+                    });
+                });
+
                 dataClientErrorStatusCodes.slice(0, 1).forEach(function(data) {
                     it('returns HTTP status code ' + data.code + ' and associated error string "' + data.error + '"', function() {
                         this.router.route('/will-error', {
