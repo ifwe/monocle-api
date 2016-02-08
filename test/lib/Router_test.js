@@ -1839,6 +1839,79 @@ describe('API Router', function() {
                 });
             });
         });
+
+        describe('props with multi-callback collection', function() {
+            beforeEach(function() {
+                this.router.route('/foo', {
+                    type: 'object',
+                    properties: {
+                        total: { type: 'integer' },
+                        items: {
+                            type: 'array',
+                            items: {
+                                type: 'object',
+                                properties: {
+                                    foo: { type: 'string' },
+                                    bar: { type: 'string' }
+                                }
+                            }
+                        }
+                    }
+                }, {
+                    get: [
+                        {
+                            props: ['total'],
+                            callback: function(request, connection) {
+                                return {
+                                    total: 7
+                                };
+                            }
+                        },
+                        {
+                            props: ['items'],
+                            callback: function(request, connection) {
+                                var items = [];
+                                for (var i = 0; i < 7; i++) {
+                                    items.push({
+                                        foo: 'test foo ' + i,
+                                        bar: 'test bar ' + i
+                                    })
+                                }
+                                return new OffsetPaginator('/foo')
+                                .setItems(items);
+                            }
+                        }
+                    ]
+                });
+            });
+
+            it('can access separate prop `total` independently', function() {
+                return this.connection.get('/foo', {
+                    props: ['total']
+                })
+                .then(function(result) {
+                    result.should.have.property('total', 7);
+                });
+            });
+
+            it('can access separate prop `items` independently', function() {
+                return this.connection.get('/foo', {
+                    props: ['items']
+                })
+                .then(function(result) {
+                    result.should.have.property('items');
+                });
+            });
+
+            it('can access separate nested prop `items@foo` independently', function() {
+                return this.connection.get('/foo', {
+                    props: ['items@foo']
+                })
+                .then(function(result) {
+                    result.should.have.property('items');
+                });
+            });
+        });
     });
 
     describe('method OPTIONS /', function() {
