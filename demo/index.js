@@ -82,24 +82,29 @@ api.route(['/users', 'limit=10&offset=0&search'], userCollectionSchema, {
     post: createUser
 });
 
-api.route('/users/:userId/photos', photoCollectionSchema, {
+api.route(['/users/:userId/photos', 'limit=10&offset=0'], photoCollectionSchema, {
     // Complex resources may need multiple callback handlers to support different properties.
     // The API router will figure out which callbacks are necessary to satisfy the incoming request.
     get: function(request) {
         var userId = request.getParam('userId');
 
         //Get Parametersplice(0, limit).
-        var limit = request.getQuery('limit') || mockPhotos.length;
+        var limit = request.getQuery('limit');
+        var offset = request.getQuery('offset');
 
         var photos = mockPhotos.filter(function(photo) {
             return photo.userId === userId;
-        }).splice(0, limit).map(function(photo) {
+        })
+        .slice(offset, limit)
+        .map(function(photo) {
             return new Resource('/users/' + userId + '/photos/' + photo.photoId, photo, 86400);
         });
-        if (!photos.length) {
-            return Promise.reject("Unable to find photos for user " + userId);
-        };
-        return photos;
+
+        return new OffsetPaginator('/users/' + userId + '/photos')
+        .setItems(photos)
+        .setLimit(limit)
+        .setOffset(offset)
+        .setTotal(mockPhotos.length);
     },
     post: function(request) {
         var userId = request.getParam('userId');
