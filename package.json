@@ -6,8 +6,8 @@
   "scripts": {
     "test": "grunt mochaTest",
     "watch": "grunt watch",
-    "simple-demo": "nodemon demo/simple.js",
-    "demo": "nodemon demo/index.js"
+    "simple-demo": "nodemon demo/simple.js --watch lib --watch demo --ext js,jade,css",
+    "demo": "nodemon demo/index.js --watch lib --watch demo --ext js,jade,css"
   },
   "repository": {
     "type": "git",

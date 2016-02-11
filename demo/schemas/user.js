@@ -33,6 +33,7 @@ module.exports = {
         gender: {
             description: '"M" for male, "F" for female.',
             type: 'string',
+            enum: ['F', 'M'],
             sample: 'F'
         },
         email: {
