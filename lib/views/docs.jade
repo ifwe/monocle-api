@@ -63,14 +63,14 @@ mixin props(properties)
                 if details.type == 'object'
                     +props(details.properties)
 
-                if details.type == 'array'
+                else if details.type == 'array' && details.items.properties
                     +props(details.items.properties)
 
                 else if meta.length
                     dl.meta
                         each key in meta
                             dt= key
-                            if key === 'errorCodes'
+                            if key === 'errorCodes' && details[key]
                                 dd= JSON.stringify(details[key], null, 2).slice(3, -2)
                             else
                                 dd= details[key]
