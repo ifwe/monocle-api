@@ -529,6 +529,57 @@ describe('API Router', function() {
                     });
                 });
 
+                it('returns returnProperty as property in error if passed in the propertyError function', function() {
+                    this.collectionSchema = {
+                        type: 'object',
+                        properties: {
+                            items: {
+                                type: 'array',
+                                items: {
+                                    type: 'object',
+                                    properties: {
+                                        test: {
+                                            type: 'string',
+                                            errorCodes: [
+                                                {
+                                                    code: 1000,
+                                                    error: 'TOO_SHORT',
+                                                    message: 'Property is too short'
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    };
+
+                    var returnProperty = 'test';
+                    this.router.route('/collection', this.collectionSchema, {
+                        post: function(request, connection) {
+                            // Return a property error
+                            return request.propertyError('items@test', 1000, 400, 'Property is too short', returnProperty);
+                        }
+                    });
+
+                    return this.connection.post('/collection', { /* anything */ })
+                    .then(function(error) {
+                        return Promise.reject('Did not expect success');
+                    })
+                    .catch(function(error) {
+                        error.should.be.ok;
+                        error.should.have.property('properties');
+                        error.properties.should.be.an('array');
+                        error.properties.should.have.lengthOf(1);
+                        error.properties[0].should.deep.equal({
+                            property: returnProperty,
+                            code: 1000,
+                            error: 'TOO_SHORT',
+                            message: 'Property is too short'
+                        });
+                    }.bind(this));
+                })
+
                 dataClientErrorStatusCodes.slice(0, 1).forEach(function(data) {
                     it('returns HTTP status code ' + data.code + ' and associated error string "' + data.error + '"', function() {
                         this.router.route('/will-error', {
