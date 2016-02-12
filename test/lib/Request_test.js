@@ -130,4 +130,43 @@ describe('Request', function() {
             expect(this.request.getResourceId()).to.be.undefined;
         });
     });
+    describe('isCollection', function() {
+        beforeEach(function() {
+            this.request = new Request('/foo');
+        });
+
+        it('true if schema represents collection', function() {
+            var collectionSchema = {
+                type: 'object',
+                properties: {
+                    items: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                test: {
+                                    type: 'string'
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+
+            this.request.isCollection(collectionSchema).should.be.true;
+        });
+        it('false if schema is not a collection', function() {
+            var collectionSchema = {
+                type: 'object',
+                properties: {
+                    test: {
+                        type: 'string'
+                    }
+                }
+            };
+
+            this.request.isCollection(collectionSchema).should.be.false;
+        });
+    });
+
 });

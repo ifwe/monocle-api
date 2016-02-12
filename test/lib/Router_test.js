@@ -459,21 +459,21 @@ describe('API Router', function() {
                         };
                     });
                     [
-                        'items@foo',
-                        'items@nested4.foo4',
-                        'items@nested4.bar4.barNested4',
-                        'items@nested4.bar4.items@nestedArray4',
-                        'nested.nested2.items@nestedArray2',
-                        'userId',
-                        'nested.nested2.foo2',
-                        'nested.nested2.nested3.foo3',
+                        ['items@foo', 'foo'],
+                        ['items@nested4.foo4', 'nested4.foo4'],
+                        ['items@nested4.bar4.barNested4', 'nested4.bar4.barNested4'],
+                        ['items@nested4.bar4.items@nestedArray4', 'nested4.bar4.items@nestedArray4'],
+                        ['nested.nested2.items@nestedArray2', 'nested.nested2.items@nestedArray2'],
+                        ['userId', 'userId'],
+                        ['nested.nested2.foo2', 'nested.nested2.foo2'],
+                        ['nested.nested2.nested3.foo3', 'nested.nested2.nested3.foo3'],
                     ]
                     .forEach(function(data) {
-                        it('returns error details for property ' + data , function() {
+                        it('returns error details for property ' + data[0] , function() {
                             this.router.route('/collection', this.collectionSchema, {
                                 post: function(request, connection) {
                                     // Return a property error
-                                    return request.propertyError(data, 1000);
+                                    return request.propertyError(data[0], 1000);
                                 }
                             });
 
@@ -487,7 +487,7 @@ describe('API Router', function() {
                                 error.properties.should.be.an('array');
                                 error.properties.should.have.lengthOf(1);
                                 error.properties[0].should.deep.equal({
-                                    property: data,
+                                    property: data[1],
                                     code: 1000,
                                     error: 'TOO_SHORT',
                                     message: 'Property is too short'
