@@ -228,7 +228,7 @@ describe('API Router', function() {
         });
 
         describe('delete', function() {
-            it('does not attempt to validate response with schema', function() {
+            beforeEach(function() {
                 this.deletableSchema = {
                     type: 'object',
                     properties: {
@@ -236,21 +236,40 @@ describe('API Router', function() {
                             type: 'string'
                         }
                     },
-                    required: ['foo']
                 };
 
-                this.router.route('/deletable', this.deletableSchema, {
+                this.router.route('/deletable-fail', this.deletableSchema, {
                     delete: function() {
                         return {
-                            deleted: true
+                            foo: 123
                         };
                     }
                 });
 
-                return this.connection.delete('/deletable')
-                .then(function(result) {
-                    result.should.have.property('deleted', true);
+                this.router.route('/deletable-success', this.deletableSchema, {
+                    delete: function() {
+                        return {
+                            foo: 'hello'
+                        };
+                    }
                 });
+            });
+
+            it('compares response with schema and fails validation', function() {
+                return this.connection.delete('/deletable-fail')
+                .then(function(error) {
+                    return Promise.reject('Did not expect success');
+                })
+                .catch(function(error) {
+                    error.message.should.equal('Return value did not validate with schema');
+                }.bind(this));
+            });
+
+            it('compares response with schema and passes validation', function() {
+                return this.connection.delete('/deletable-success')
+                .then(function(response) {
+                    response.foo.should.equal('hello');
+                })
             });
         });
 
@@ -1363,31 +1382,6 @@ describe('API Router', function() {
                 done();
             })
             .catch(done);
-        });
-    });
-
-    describe('method DELETE', function() {
-        beforeEach(function() {
-            this.router = new Router();
-            this.router.route('/foo', {
-                type: 'object',
-                properties: {
-                    anything: { type: 'string' }
-                }
-            }, {
-                delete: function(request) {
-                    return 'ok'; // does not validate with resource schema, which is OK.
-                }
-            });
-
-            this.connection = new Connection(this.router, {}, {});
-        });
-
-        it('ignores provided schema for response entity', function() {
-            return this.connection.delete('/foo')
-            .then(function(result, connection) {
-                result.should.be.ok;
-            });
         });
     });
 
