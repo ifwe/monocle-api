@@ -30,7 +30,8 @@ describe('API Router', function() {
                     foo: { type: 'string' },
                     nullable: { type: ['string', 'null'] },
                     param1: { type: 'integer' },
-                    param2: { type: 'string' }
+                    param2: { type: 'string' },
+                    param3: { type: 'string', enum: ['val1', 'val2'] }
                 }
             };
             this.getFooSpy = sinon.spy(function(request, connection) {
@@ -76,31 +77,33 @@ describe('API Router', function() {
                         id_query: request.getQuery('fooId'),
                         id_param: request.getQuery('fooId'),
                         param1: request.getQuery('param1'),
-                        param2: request.getQuery('param2')
+                        param2: request.getQuery('param2'),
+                        param3: request.getQuery('param3')
                     };
                 });
             });
 
             it('resolves with object from callback with route having a parameter in the middle of the url', function() {
-                this.router.route(['/foo/:fooId/test', 'param1&param2'], this.fooSchema, {
+                this.router.route(['/foo/:fooId/test', 'param1&param2&param3'], this.fooSchema, {
                     get: this.getParamsFoo
                 });
 
                 return this.connection.get('/foo/123/test', {
-                  query: { param1: 1, param2: 'test' }
+                  query: { param1: 1, param2: 'test', param3: 'val1' }
                 })
                 .then(function(foo) {
                     foo.should.deep.equal({
                         id_query: '123',
                         id_param: '123',
                         param1: 1,
-                        param2: 'test'
+                        param2: 'test',
+                        param3: 'val1'
                     });
                 }.bind(this));
             });
 
             it('resolves with object from callback with route having a parameter in end of the url', function() {
-                this.router.route(['/foo/test/:fooId', 'param1&param2'], this.fooSchema, {
+                this.router.route(['/foo/test/:fooId', 'param1&param2&param3'], this.fooSchema, {
                     get: this.getParamsFoo
                 });
 
@@ -150,6 +153,24 @@ describe('API Router', function() {
                     error.should.have.property('code', 422);
                     error.properties[0].should.have.property('code', 105);
                 });
+            });
+
+            it('throws an error when query string parameter does not validate against available enum values', function() {
+                this.router.route(['/foo/test/:fooId', 'param3'], this.fooSchema, {
+                    get: this.getParamsFoo
+                });
+
+                return this.connection.get('/foo/test/123', {
+                        query: { param3: 'not a valid enum value' }
+                    })
+                    .then(function(foo) {
+                        return Promise.reject("Not expecting an error");
+                    }.bind(this))
+                    .catch(function(error) {
+                        error.should.be.ok;
+                        error.should.have.property('code', 422);
+                        error.properties[0].should.have.property('code', 110);
+                    });
             });
 
             it('uses default value if not provided in request', function() {
