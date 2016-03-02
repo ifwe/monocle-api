@@ -11,6 +11,8 @@ var Router = require('../lib');
 var Resource = require('../lib').Resource;
 var OffsetPaginator = require('../lib').OffsetPaginator;
 var Symlink = require('../lib').Symlink;
+var fs = require('fs');
+var path = require('path');
 
 /*** Set up simple HTTP server ***/
 
@@ -107,14 +109,46 @@ api.route(['/users/:userId/photos', 'limit=10&offset=0'], photoCollectionSchema,
         .setTotal(mockPhotos.length);
     },
     post: function(request) {
-        var userId = request.getParam('userId');
-        var photoId = mockPhotos.length;
-        var photo = request.getResource();
-        photo.userId = userId;
-        photo.photoId = photoId;
-        photo.url = 'http://mysite.com/photos/photo-' + userId + '-' + photoId + '.png';
-        mockPhotos.push(photo);
-        return [new Resource('/users/' + userId + '/photos/' + photo.photoId, photo, 86400)];
+        return request.getUpload('photo')
+        .then(function(upload) {
+            var photoFileName = Math.round(Math.random() * 1e16).toString(36);
+
+            switch (upload.mimeType) {
+                case 'image/png':
+                    photoFileName += '.png';
+                    break;
+
+                case 'image/jpeg':
+                    photoFileName += '.jpg';
+                    break;
+
+                case 'image/gif':
+                    photoFileName += '.gif';
+                    break;
+
+                default:
+                    return request.error(442, 'Invalid upload type: ' + upload.mimeType);
+            }
+
+            var saveFilePath = path.join(__dirname, 'files', 'photos', photoFileName);
+
+            var wstream = fs.createWriteStream(saveFilePath, {
+                encoding: upload.encoding
+            });
+
+            wstream.write(upload.buffer);
+            wstream.end();
+
+            var userId = request.getParam('userId');
+            var photoId = mockPhotos.length;
+            var photo = request.getResource();
+            photo.userId = userId;
+            photo.photoId = photoId;
+            photo.url = 'http://localhost:5150/photos/' + photoFileName;
+            mockPhotos.push(photo);
+
+            return new Resource('/users/' + userId + '/photos/' + photo.photoId, photo, 86400);
+        });
     }
 });
 
@@ -262,8 +296,27 @@ function createUser(request) {
 
 }
 
-// Mounth the API as middleware
+// A very simple photo upload page
+app.use(function(req, res, next) {
+    if (req.url !== '/upload-photo' || req.method !== 'GET') {
+        return next();
+    }
+    res.setHeader('Content-Type', 'text/html');
+    res.write('\
+        <form method="POST" enctype="multipart/form-data" action="/my-api/users/1/photos">\
+            <input type="file" name="photo" />\
+            <textarea name="caption" placeholder="caption"></textarea>\
+            <button>Upload</button>\
+        </form>\
+    ');
+    res.end();
+});
 
+// Allow uploaded files to be served
+var serveStatic = require('serve-static');
+app.use(serveStatic(path.join(__dirname, 'files')));
+
+// Mount the API as middleware
 app.use(api.middleware({
     basePath: '/my-api'
 }));

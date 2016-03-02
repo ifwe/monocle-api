@@ -28,6 +28,10 @@ module.exports = {
             description: 'A user-supplied caption that describes this photo.',
             type: 'string',
             sample: 'My awesome picture!'
+        },
+        photo: {
+            description: 'Photo',
+            type: 'file'
         }
     }
 };
