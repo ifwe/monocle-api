@@ -194,14 +194,14 @@ describe('Request', function() {
                 properties: {
                     photo: {
                         type: 'file',
-                        mimeTypes: ['image/*'], // allowed mime types, supports wildcards
+                        mimeTypes: ['image/jpeg', 'image/png', 'image/gif'], // allowed mime types
                         // TODO: Support minSize somehow
                         // minSize: 5, // minimum size in bytes
                         maxSize: 20 // maximum size in bytes
                     },
                     audio: {
                         type: 'file',
-                        mimeTypes: ['audio/*'],
+                        mimeTypes: ['audio/*'], // wildcards supported
                         maxSize: 20
                     }
                 }
@@ -235,7 +235,7 @@ describe('Request', function() {
                 [
                     'image/jpeg',       // jpeg OK
                     'image/png',        // png OK
-                    'image/anything',   // schema accepts "image/*"
+                    'image/gif',        // gif OK
                 ].forEach(function(validMimeType) {
                     it('does not emit error event with valid photo mime type: ' + validMimeType, function() {
                         this.request = new Request('/foo', this.router, this.connection);
