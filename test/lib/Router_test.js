@@ -180,18 +180,158 @@ describe('API Router', function() {
             });
         });
 
-        it('calls associated callback with request and connection objects', function(done) {
-            this.connection.get('/foo/123')
-            .then(function(foo) {
-                this.getFooSpy.called.should.be.true;
-                var request = this.getFooSpy.lastCall.args[0];
-                request.should.be.instanceOf(Request);
-                request.getParam('fooId').should.equal('123');
+        describe('calls associated callbacks', function() {
+            it(' and connection objects with get method being a function', function(done) {
+                this.connection.get('/foo/123')
+                .then(function(foo) {
+                    this.getFooSpy.called.should.be.true;
+                    var request = this.getFooSpy.lastCall.args[0];
+                    request.should.be.instanceOf(Request);
+                    request.getParam('fooId').should.equal('123');
 
-                var connection = this.getFooSpy.lastCall.args[1];
-                connection.should.be.instanceOf(Connection);
-            }.bind(this))
-            .finally(done);
+                    var connection = this.getFooSpy.lastCall.args[1];
+                    connection.should.be.instanceOf(Connection);
+                }.bind(this))
+                .finally(done);
+            });
+
+            describe('with array of handlers', function() {
+                beforeEach(function() {
+                    this.getTeeSpy = sinon.spy(function(request, connection) {
+                        return {
+                            tee: 'test tee',
+                            nullable: null
+                        };
+                    });
+
+
+                    this.patchFooSpy = sinon.spy(function(request, connection) {
+                        return {
+                            tee: 'test foo',
+                            nullable: null
+                        };
+                    });
+
+
+                    this.patchTeeSpy = sinon.spy(function(request, connection) {
+                        return {
+                            tee: 'test tee',
+                            nullable: null
+                        };
+                    });
+
+                    //Add property to fooSchema
+                    this.fooSchema.properties.tee = { type: 'string' }
+                    this.router.route('/multiple-handlers/:fooId', this.fooSchema, {
+                        get: [
+                            {
+                                props: ['foo'],
+                                callback: this.getFooSpy
+                            },
+                            {
+                                props: ['bar'],
+                                callback: this.getTeeSpy
+                            }
+                        ],
+
+                        patch: [
+                            {
+                                props: ['foo'],
+                                callback: this.patchFooSpy
+                            },
+                            {
+                                props: ['tee'],
+                                callback: this.patchTeeSpy
+                            }
+
+                        ],
+
+                        put: [
+                            {
+                                props: ['foo'],
+                                callback: this.patchFooSpy
+                            },
+                            {
+                                props: ['tee'],
+                                callback: this.patchTeeSpy
+                            }
+
+                        ]
+                    });
+                });
+
+                describe('GET method', function() {
+                    it('calls all functions if no props are requested', function() {
+                        this.connection.get('/multiple-handlers/123')
+                        .then(function(foo) {
+                            this.getTeeSpy.called.should.be.true;
+                            this.getFooSpy.called.should.be.true;
+                        }.bind(this))
+                    });
+
+                    it('calls associated function with props passed in', function() {
+                        this.connection.get('/multiple-handlers/123?props=foo')
+                        .then(function(foo) {
+                            this.getTeeSpy.called.should.be.false;
+                            this.getFooSpy.called.should.be.true;
+                        }.bind(this))
+                    });
+                });
+
+                describe('PATCH method', function() {
+                    it('calls associated function with resource passed in', function() {
+                        this.resource = {
+                            resource: {
+                                'tee': 'yoo'
+                            }
+                        }
+                        this.connection.patch('/multiple-handlers/123', this.resource)
+                        .then(function(foo) {
+                            this.patchTeeSpy.called.should.be.true;
+                            this.patchFooSpy.called.should.be.false;
+                        }.bind(this))
+                    });
+                    it('does not call any function if resource is empty', function() {
+                        this.resource = {
+                            resource: {
+
+                            }
+                        }
+                        this.connection.patch('/multiple-handlers/123', this.resource)
+                        .then(function(foo) {
+                            this.patchTeeSpy.called.should.be.false;
+                            this.patchFooSpy.called.should.be.false;
+                        }.bind(this))
+                    });
+                });
+
+                describe('PUT method', function() {
+                    it('calls associated function with resource passed in', function() {
+                        this.resource = {
+                            resource: {
+                                'tee': 'yoo'
+                            }
+                        }
+                        this.connection.put('/multiple-handlers/123', this.resource)
+                        .then(function(foo) {
+                            this.patchTeeSpy.called.should.be.true;
+                            this.patchFooSpy.called.should.be.false;
+                        }.bind(this))
+                    });
+                    it('does not call any function if resource is empty', function() {
+                        this.resource = {
+                            resource: {
+
+                            }
+                        }
+                        this.connection.put('/multiple-handlers/123', this.resource)
+                        .then(function(foo) {
+                            this.patchTeeSpy.called.should.be.false;
+                            this.patchFooSpy.called.should.be.false;
+                        }.bind(this))
+                    });
+                });
+            });
         });
 
         it('resolves with object from callback', function(done) {
