@@ -2915,4 +2915,94 @@ describe('API Router', function() {
             });
         });
     });
+
+    describe('post-route hook', function() {
+        beforeEach(function() {
+            this.router = new Router();
+            this.connection = new Connection(this.router, {}, {});
+            this.clock = sinon.useFakeTimers(10000000);
+
+            this.schema = {
+                type: 'object',
+                properties: {
+                    foo: { type: 'string' },
+                    bar: { type: 'string' }
+                }
+            };
+
+            this.route = this.router.route('/foo', this.schema, {
+                get: function() {
+                    return new Resource('/foo', {
+                        foo: 'test_foo',
+                        bar: 'test_bar'
+                    }, 1000);
+                }
+            });
+        });
+
+        afterEach(function() {
+            this.clock.restore();
+        });
+
+        it('can modify the resource', function() {
+            this.router.postRoute(function(resource) {
+                resource.foo = 'modified_foo';
+                return resource;
+            });
+
+            return this.connection.get('/foo')
+            .then(function(resource) {
+                resource.foo.should.equal('modified_foo');
+            });
+        });
+
+        it('can modify the resource by returning a promise', function() {
+            this.router.postRoute(function(resource) {
+                return new Promise(function(resolve, reject) {
+                    resource.foo = 'modified_foo';
+                    resolve(resource);
+                });
+            });
+
+            return this.connection.get('/foo')
+            .then(function(resource) {
+                resource.foo.should.equal('modified_foo');
+            });
+        });
+
+        it('can register multiple modifiers', function() {
+            this.router.postRoute(function(resource) {
+                resource.foo = 'modified_foo';
+                return resource;
+            });
+
+            this.router.postRoute(function(resource) {
+                resource.bar = 'modified_bar';
+                return resource;
+            });
+
+            return this.connection.get('/foo')
+            .then(function(resource) {
+                resource.foo.should.equal('modified_foo');
+                resource.bar.should.equal('modified_bar');
+            });
+        });
+
+        it('runs multiple handlers in FIFO order', function() {
+            this.router.postRoute(function(resource) {
+                resource.foo = 'modified_foo_1';
+                return resource;
+            });
+
+            this.router.postRoute(function(resource) {
+                resource.foo = 'modified_foo_2';
+                return resource;
+            });
+
+            return this.connection.get('/foo')
+            .then(function(resource) {
+                resource.foo.should.equal('modified_foo_2');
+            });
+        });
+    });
 });
