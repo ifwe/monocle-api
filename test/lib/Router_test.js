@@ -29,9 +29,17 @@ describe('API Router', function() {
                 properties: {
                     foo: { type: 'string' },
                     nullable: { type: ['string', 'null'] },
-                    param1: { type: 'integer' },
+                    param1: { type: ['integer', 'null'] },
                     param2: { type: 'string' },
-                    param3: { type: 'string', enum: ['val1', 'val2'] }
+                    param3: { type: 'string', enum: ['val1', 'val2'] },
+                    param4: { type: 'integer', enum: [2, 3] },
+                    param5: { type: ['integer', 'null'] },
+                    param6: {
+                        type: 'object',
+                        properties: {
+                            param61: {type: ['integer', 'null']}
+                        }
+                    }
                 }
             };
             this.getFooSpy = sinon.spy(function(request, connection) {
@@ -73,23 +81,35 @@ describe('API Router', function() {
         describe('Connects to a resource with get parameters', function() {
             beforeEach(function() {
                 this.getParamsFoo = sinon.spy(function(request, connection) {
-                    return {
+                    var result =  {
                         id_query: request.getQuery('fooId'),
                         id_param: request.getQuery('fooId'),
                         param1: request.getQuery('param1'),
                         param2: request.getQuery('param2'),
-                        param3: request.getQuery('param3')
+                        param3: request.getQuery('param3'),
+                        param4: request.getQuery('param4'),
+                        param5: request.getQuery('param5')
+
                     };
+
+                    var param61 = request.getQuery('param6.param61');
+                    if (param61) {
+                        result.param6 = {
+                            param61: param61
+                        }
+                    }
+
+                    return result;
                 });
             });
 
             it('resolves with object from callback with route having a parameter in the middle of the url', function() {
-                this.router.route(['/foo/:fooId/test', 'param1&param2&param3'], this.fooSchema, {
+                this.router.route(['/foo/:fooId/test', 'param1&param2&param3&param4&param5'], this.fooSchema, {
                     get: this.getParamsFoo
                 });
 
                 return this.connection.get('/foo/123/test', {
-                  query: { param1: 1, param2: 'test', param3: 'val1' }
+                  query: { param1: 1, param2: 'test', param3: 'val1', param4: 2, param5: null }
                 })
                 .then(function(foo) {
                     foo.should.deep.equal({
@@ -97,10 +117,51 @@ describe('API Router', function() {
                         id_param: '123',
                         param1: 1,
                         param2: 'test',
-                        param3: 'val1'
+                        param3: 'val1',
+                        param4: 2,
+                        param5: null
                     });
                 }.bind(this));
             });
+
+            it('resolves with object from callback with nested parameter', function() {
+                this.router.route(['/foo/:fooId/test', 'param6.param61'], this.fooSchema, {
+                    get: this.getParamsFoo
+                });
+
+                return this.connection.get('/foo/123/test', {
+                  query: { param6 : {param61 : '43'} }
+                })
+                .then(function(foo) {
+                    foo.should.deep.equal({
+                        id_query: '123',
+                        id_param: '123',
+                        param6: {
+                            param61: 43
+                        }
+                    });
+                }.bind(this));
+            });
+
+          it('resolves with object from callback with nested parameter having a default value', function() {
+                this.router.route(['/foo/:fooId/test', 'param6.param61=3'], this.fooSchema, {
+                    get: this.getParamsFoo
+                });
+
+                return this.connection.get('/foo/123/test', {
+                  query: {  }
+                })
+                .then(function(foo) {
+                    foo.should.deep.equal({
+                        id_query: '123',
+                        id_param: '123',
+                        param6: {
+                            param61: 3
+                        }
+                    });
+                }.bind(this));
+            });
+
 
             it('resolves with object from callback with route having a parameter in end of the url', function() {
                 this.router.route(['/foo/test/:fooId', 'param1&param2&param3'], this.fooSchema, {
@@ -173,7 +234,26 @@ describe('API Router', function() {
                     });
             });
 
-            it('uses default value if not provided in request', function() {
+
+            it('throws an error when query integer parameter does not validate against available enum values', function() {
+                this.router.route(['/foo/test/:fooId', 'param4'], this.fooSchema, {
+                    get: this.getParamsFoo
+                });
+
+                return this.connection.get('/foo/test/123', {
+                        query: { param4: 44 }
+                    })
+                    .then(function(foo) {
+                        return Promise.reject("Not expecting an error");
+                    }.bind(this))
+                    .catch(function(error) {
+                        error.should.be.ok;
+                        error.should.have.property('code', 422);
+                        error.properties[0].should.have.property('code', 110);
+                    });
+            });
+
+            it('uses default value if not provided in request for type integer only', function() {
                 this.router.route(['/foo/test/:fooId', 'param1=123'], this.fooSchema, {
                     get: this.getParamsFoo
                 });
@@ -183,6 +263,19 @@ describe('API Router', function() {
                 })
                 .then(function(foo) {
                     foo.should.have.property('param1', 123);
+                }.bind(this));
+            });
+
+            it('uses default value if not provided in request for type integer and null', function() {
+                this.router.route(['/foo/test/:fooId', 'param5=123'], this.fooSchema, {
+                    get: this.getParamsFoo
+                });
+
+                return this.connection.get('/foo/test/123', {
+                  query: { /* empty */ }
+                })
+                .then(function(foo) {
+                    foo.should.have.property('param5', 123);
                 }.bind(this));
             });
 
