@@ -62,7 +62,7 @@ describe('Connection', function() {
                 });
 
                 it('sets query params if specified in options', function() {
-                    this.options.query = { foo: 'test foo', foo2: 'test foo2'};
+                   this.options.query = { foo: 'test foo', foo2: 'test foo2'};
                     this.connection[method.toLowerCase()](this.resourceId, this.options);
 
                     this.router.handle.lastCall.args[0].getQuery('foo').should.equal('test foo');
