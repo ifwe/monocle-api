@@ -31,7 +31,8 @@ describe('API Router', function() {
                     nullable: { type: ['string', 'null'] },
                     param1: { type: 'integer' },
                     param2: { type: 'string' },
-                    param3: { type: 'string', enum: ['val1', 'val2'] }
+                    param3: { type: 'string', enum: ['val1', 'val2'] },
+                    boolParam: { type: 'boolean' }
                 }
             };
             this.getFooSpy = sinon.spy(function(request, connection) {
@@ -78,18 +79,19 @@ describe('API Router', function() {
                         id_param: request.getQuery('fooId'),
                         param1: request.getQuery('param1'),
                         param2: request.getQuery('param2'),
-                        param3: request.getQuery('param3')
+                        param3: request.getQuery('param3'),
+                        boolParam: request.getQuery('boolParam')
                     };
                 });
             });
 
             it('resolves with object from callback with route having a parameter in the middle of the url', function() {
-                this.router.route(['/foo/:fooId/test', 'param1&param2&param3'], this.fooSchema, {
+                this.router.route(['/foo/:fooId/test', 'param1&param2&param3&boolParam'], this.fooSchema, {
                     get: this.getParamsFoo
                 });
 
                 return this.connection.get('/foo/123/test', {
-                  query: { param1: 1, param2: 'test', param3: 'val1' }
+                  query: { param1: 1, param2: 'test', param3: 'val1', boolParam: true }
                 })
                 .then(function(foo) {
                     foo.should.deep.equal({
@@ -97,25 +99,27 @@ describe('API Router', function() {
                         id_param: '123',
                         param1: 1,
                         param2: 'test',
-                        param3: 'val1'
+                        param3: 'val1',
+                        boolParam: true
                     });
                 }.bind(this));
             });
 
             it('resolves with object from callback with route having a parameter in end of the url', function() {
-                this.router.route(['/foo/test/:fooId', 'param1&param2&param3'], this.fooSchema, {
+                this.router.route(['/foo/test/:fooId', 'param1&param2&param3&boolParam'], this.fooSchema, {
                     get: this.getParamsFoo
                 });
 
                 return this.connection.get('/foo/test/123', {
-                  query: { param1: 1, param2: 'test' }
+                  query: { param1: 1, param2: 'test', boolParam: false }
                 })
                 .then(function(foo) {
                     foo.should.deep.equal({
                         id_query: '123',
                         id_param: '123',
                         param1: 1,
-                        param2: 'test'
+                        param2: 'test',
+                        boolParam: false
                     });
                 }.bind(this));
             });
@@ -137,7 +141,7 @@ describe('API Router', function() {
                 }.bind(this));
             });
 
-            it('throws an error when query string parameter does not validate', function() {
+            it('throws an error when query string parameter of type string does not validate', function() {
                 this.router.route(['/foo/test/:fooId', 'param1'], this.fooSchema, {
                     get: this.getParamsFoo
                 });
@@ -170,6 +174,24 @@ describe('API Router', function() {
                         error.should.be.ok;
                         error.should.have.property('code', 422);
                         error.properties[0].should.have.property('code', 110);
+                    });
+            });
+
+            it('throws an error when query string parameter of type boolean does not validate', function() {
+                this.router.route(['/foo/test/:fooId', 'boolParam'], this.fooSchema, {
+                    get: this.getParamsFoo
+                });
+
+                return this.connection.get('/foo/test/123', {
+                        query: { boolParam: 'not an boolean' }
+                    })
+                    .then(function(foo) {
+                        return Promise.reject("Not expecting an error");
+                    }.bind(this))
+                    .catch(function(error) {
+                        error.should.be.ok;
+                        error.should.have.property('code', 422);
+                        error.properties[0].should.have.property('code', 105);
                     });
             });
 
