@@ -27,11 +27,15 @@ describe('API Router', function() {
             this.fooSchema = {
                 type: 'object',
                 properties: {
+                    fooId: { type: 'integer' },
                     foo: { type: 'string' },
                     nullable: { type: ['string', 'null'] },
-                    param1: { type: 'integer' },
+                    param1: { type: ['integer', 'null'] },
                     param2: { type: 'string' },
-                    param3: { type: 'string', enum: ['val1', 'val2'] }
+                    param3: { type: 'string', enum: ['val1', 'val2'] },
+                    param4: { type: 'integer', enum: [2, 3] },
+                    param5: { type: ['integer', 'null'] },
+                    boolParam: { type: 'boolean' }
                 }
             };
             this.getFooSpy = sinon.spy(function(request, connection) {
@@ -73,49 +77,66 @@ describe('API Router', function() {
         describe('Connects to a resource with get parameters', function() {
             beforeEach(function() {
                 this.getParamsFoo = sinon.spy(function(request, connection) {
-                    return {
+                    var result =  {
                         id_query: request.getQuery('fooId'),
                         id_param: request.getQuery('fooId'),
                         param1: request.getQuery('param1'),
                         param2: request.getQuery('param2'),
-                        param3: request.getQuery('param3')
+                        param3: request.getQuery('param3'),
+                        param4: request.getQuery('param4'),
+                        param5: request.getQuery('param5'),
+                        boolParam: request.getQuery('boolParam')
+
                     };
+
+                    var param61 = request.getQuery('param6');
+                    if (param61) {
+                        result.param6 = {
+                            param61: param61
+                        }
+                    }
+
+                    return result;
                 });
             });
 
             it('resolves with object from callback with route having a parameter in the middle of the url', function() {
-                this.router.route(['/foo/:fooId/test', 'param1&param2&param3'], this.fooSchema, {
+                this.router.route(['/foo/:fooId/test', 'param1&param2&param3&param4&param5&boolParam'], this.fooSchema, {
                     get: this.getParamsFoo
                 });
 
                 return this.connection.get('/foo/123/test', {
-                  query: { param1: 1, param2: 'test', param3: 'val1' }
+                  query: { param1: 1, param2: 'test', param3: 'val1', param4: 2, param5: null, boolParam: 'true' }
                 })
                 .then(function(foo) {
                     foo.should.deep.equal({
-                        id_query: '123',
-                        id_param: '123',
+                        id_query: 123,
+                        id_param: 123,
                         param1: 1,
                         param2: 'test',
-                        param3: 'val1'
+                        param3: 'val1',
+                        param4: 2,
+                        param5: null,
+                        boolParam: true
                     });
                 }.bind(this));
             });
 
             it('resolves with object from callback with route having a parameter in end of the url', function() {
-                this.router.route(['/foo/test/:fooId', 'param1&param2&param3'], this.fooSchema, {
+                this.router.route(['/foo/test/:fooId', 'param1&param2&param3&boolParam'], this.fooSchema, {
                     get: this.getParamsFoo
                 });
 
                 return this.connection.get('/foo/test/123', {
-                  query: { param1: 1, param2: 'test' }
+                  query: { param1: 1, param2: 'test', boolParam: true }
                 })
                 .then(function(foo) {
                     foo.should.deep.equal({
-                        id_query: '123',
-                        id_param: '123',
+                        id_query: 123,
+                        id_param: 123,
                         param1: 1,
-                        param2: 'test'
+                        param2: 'test',
+                        boolParam: true
                     });
                 }.bind(this));
             });
@@ -130,14 +151,14 @@ describe('API Router', function() {
                 })
                 .then(function(foo) {
                     foo.should.deep.equal({
-                        id_query: '123',
-                        id_param: '123',
+                        id_query: 123,
+                        id_param: 123,
                         param1: 1
                     });
                 }.bind(this));
             });
 
-            it('throws an error when query string parameter does not validate', function() {
+            it('throws an error when query string parameter of type integer does not validate', function() {
                 this.router.route(['/foo/test/:fooId', 'param1'], this.fooSchema, {
                     get: this.getParamsFoo
                 });
@@ -153,6 +174,25 @@ describe('API Router', function() {
                     error.should.have.property('code', 422);
                     error.properties[0].should.have.property('code', 105);
                 });
+            });
+
+            it('throws an error when query string parameter of type boolean does not validate', function() {
+                this.router.route(['/foo/test/:fooId', 'boolParam'], this.fooSchema, {
+                    get: this.getParamsFoo
+                });
+
+                return this.connection.get('/foo/test/123', {
+                    query: { boolParam: 'not an boolean' }
+                 })
+                .then(function(foo) {
+                    return Promise.reject("Not expecting an error");
+                }.bind(this))
+                .catch(function(error) {
+                    error.should.be.ok;
+                    error.should.have.property('code', 422);
+                    error.properties[0].should.have.property('code', 105);
+                });
+
             });
 
             it('throws an error when query string parameter does not validate against available enum values', function() {
@@ -173,7 +213,25 @@ describe('API Router', function() {
                     });
             });
 
-            it('uses default value if not provided in request', function() {
+            it('throws an error when query integer parameter does not validate against available enum values', function() {
+                this.router.route(['/foo/test/:fooId', 'param4'], this.fooSchema, {
+                    get: this.getParamsFoo
+                });
+
+                return this.connection.get('/foo/test/123', {
+                        query: { param4: 44 }
+                    })
+                    .then(function(foo) {
+                        return Promise.reject("Not expecting an error");
+                    }.bind(this))
+                    .catch(function(error) {
+                        error.should.be.ok;
+                        error.should.have.property('code', 422);
+                        error.properties[0].should.have.property('code', 110);
+                    });
+            });
+
+            it('uses default value if not provided in request for type integer only', function() {
                 this.router.route(['/foo/test/:fooId', 'param1=123'], this.fooSchema, {
                     get: this.getParamsFoo
                 });
@@ -186,7 +244,20 @@ describe('API Router', function() {
                 }.bind(this));
             });
 
-            it('uses `undefined` value if not provided in request and no default', function() {
+            it('uses default value if not provided in request for property having both types: integer and null', function() {
+                this.router.route(['/foo/test/:fooId', 'param5=123'], this.fooSchema, {
+                    get: this.getParamsFoo
+                });
+
+                return this.connection.get('/foo/test/123', {
+                  query: { /* empty */ }
+                })
+                .then(function(foo) {
+                    foo.should.have.property('param5', 123);
+                }.bind(this));
+            });
+
+            it('uses `undefined` value if query not provided in request and no default is set in the router route', function() {
                 this.router.route(['/foo/test/:fooId', 'param1&param2'], this.fooSchema, {
                     get: this.getParamsFoo
                 });
@@ -199,6 +270,19 @@ describe('API Router', function() {
                     expect(foo.param2).to.be.undefined;
                 }.bind(this));
             });
+
+            it('uses `undefined` value if no options provided in request and no default', function() {
+                this.router.route(['/foo/test/:fooId', 'param1&param2'], this.fooSchema, {
+                    get: this.getParamsFoo
+                });
+
+                return this.connection.get('/foo/test/123')
+                .then(function(foo) {
+                    expect(foo.param1).to.be.undefined;
+                    expect(foo.param2).to.be.undefined;
+                }.bind(this));
+            });
+
         });
 
         describe('calls associated callbacks', function() {
@@ -208,7 +292,7 @@ describe('API Router', function() {
                     this.getFooSpy.called.should.be.true;
                     var request = this.getFooSpy.lastCall.args[0];
                     request.should.be.instanceOf(Request);
-                    request.getParam('fooId').should.equal('123');
+                    request.getParam('fooId').should.equal(123);
 
                     var connection = this.getFooSpy.lastCall.args[1];
                     connection.should.be.instanceOf(Connection);
@@ -1019,6 +1103,7 @@ describe('API Router', function() {
                         this.itemSchema = {
                             type: 'object',
                             properties: {
+                                id: {type: 'integer'},
                                 foo: { type: 'string' },
                                 bar: { type: 'string' }
                             }
@@ -1109,6 +1194,7 @@ describe('API Router', function() {
                         this.itemSchema = {
                             type: 'object',
                             properties: {
+                                id: {type: 'integer'},
                                 foo: { type: 'string' },
                                 bar: { type: 'string' }
                             }
@@ -1194,12 +1280,13 @@ describe('API Router', function() {
         })
 
 
-
         describe('with deeply nested collections of symlinks', function() {
             beforeEach(function() {
                 this.grandchildSchema = {
                     type: 'object',
                     properties: {
+                        childId : {type: 'integer'},
+                        grandchildId : {type: 'integer'},
                         foo: { type: 'string' },
                         bar: { type: 'string' }
                     }
@@ -1208,6 +1295,7 @@ describe('API Router', function() {
                 this.childSchema = {
                     type: 'object',
                     properties: {
+                        childId : {type: 'integer'},
                         children: { type: 'array', items: this.grandchildSchema },
                     }
                 };
@@ -1751,6 +1839,8 @@ describe('API Router', function() {
                 this.grandChildSchema = {
                     type: 'object',
                     properties: {
+                        childId: {type: 'integer'},
+                        grandChildId: {type: 'integer'},
                         derp: { type: 'string' },
                         flerp: { type: 'string' },
                         obj: {
@@ -1766,6 +1856,7 @@ describe('API Router', function() {
                 this.childSchema = {
                     type: 'object',
                     properties: {
+                        childId: {type: 'integer'},
                         foo: { type: 'string' },
                         bar: { type: 'string' },
                         obj: {
@@ -1790,6 +1881,8 @@ describe('API Router', function() {
                 this.parentSchema = {
                     type: 'object',
                     properties: {
+                        childId: {type: 'integer'},
+                        grandChildId: {type: 'integer'},
                         children: this.childrenSchema
                     }
                 };
@@ -2221,6 +2314,7 @@ describe('API Router', function() {
                 this.schema = {
                     type: 'object',
                     properties: {
+                        fooId: {type: 'integer'},
                         bar: { type: 'string' }
                     }
                 };
@@ -2281,6 +2375,7 @@ describe('API Router', function() {
                 this.schema = {
                     type: 'object',
                     properties: {
+                        fooId: {type: 'integer'},
                         bar: { type: 'string' }
                     }
                 };
@@ -2341,8 +2436,9 @@ describe('API Router', function() {
         beforeEach(function() {
             this.router = new Router();
 
-            this.fooGetSpy = sinon.spy(function() {
+            this.fooGetSpy = sinon.spy(function(request) {
                 return {
+                    test1: request.getQuery('test1'),
                     bar: 'test_bar'
                 };
             });
@@ -2380,7 +2476,7 @@ describe('API Router', function() {
             });
 
             // Configure router
-            this.router.route(['/foo', 'test1'], {
+            this.router.route(['/foo', 'test1=hi'], {
                 type: 'object',
                 properties: {
                     bar: { type: 'string' },
@@ -2446,7 +2542,7 @@ describe('API Router', function() {
         describe('GET request matching API endpoint', function() {
             beforeEach(function() {
                 this.req.method ='GET';
-                this.req.url = '/foo?props=bar';
+                this.req.url = '/foo?props=bar,test1';
                 this.middleware = this.router.middleware();
             });
 
@@ -2463,6 +2559,38 @@ describe('API Router', function() {
                     this.res.setHeader.calledWith('Content-Type', 'application/json').should.be.true;
                     done();
                 }.bind(this));
+                this.middleware(this.req, this.res, this.next);
+            });
+
+            it('returns default get parameter if not speficied in url', function(done) {
+                this.res.end = sinon.spy(function() {
+                    this.res.end.lastCall.args[0].should.be.ok;
+                    var obj = JSON.parse(this.res.end.lastCall.args[0]);
+
+                    obj.should.contain({
+                        test1: 'hi'
+                    });
+
+                    done();
+                }.bind(this));
+
+                this.middleware(this.req, this.res, this.next);
+            });
+
+            it('returns specified get parameter speficied in url', function(done) {
+                this.req.url = '/foo?props=bar,test1&test1=hello';
+                this.middleware = this.router.middleware();
+                this.res.end = sinon.spy(function() {
+                    this.res.end.lastCall.args[0].should.be.ok;
+                    var obj = JSON.parse(this.res.end.lastCall.args[0]);
+
+                    obj.should.contain({
+                        test1: 'hello'
+                    });
+
+                    done();
+                }.bind(this));
+
                 this.middleware(this.req, this.res, this.next);
             });
 
