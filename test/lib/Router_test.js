@@ -71,7 +71,7 @@ describe('API Router', function() {
             this.clock.restore();
         });
 
-        describe('Connects to a resource with get parameters', function() {
+        describe('connects to a resource with get parameters', function() {
             beforeEach(function() {
                 this.getParamsFoo = sinon.spy(function(request, connection) {
                     return {
