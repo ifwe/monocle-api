@@ -678,6 +678,25 @@ describe('API Router', function() {
                 });
             });
 
+            it('throws an error when parameter is set to null and type is not null', function() {
+                this.router.route(['/foo/test/:fooId', 'param4'], this.fooSchema, {
+                    get: this.getParamsFoo
+                });
+
+                return this.connection.get('/foo/test/123', {
+                  query: { param4: null }
+                })
+                .then(function(foo) {
+                    return Promise.reject("Not expecting an error");
+                }.bind(this))
+                .catch(function(error) {
+                    console.log(error);
+                    error.should.be.ok;
+                    error.should.have.property('code', 422);
+                    error.properties[0].should.have.property('code', 105);
+                });
+            });
+
             it('throws multiple errors when multiple parameters do not validate', function() {
                 this.router.route(['/foo/test/:fooId', 'param1&param5'], this.fooSchema, {
                     get: this.getParamsFoo
