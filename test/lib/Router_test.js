@@ -94,6 +94,56 @@ describe('API Router', function() {
                 });
             });
 
+            describe('optional parameter in route', function() {
+                beforeEach(function() {
+                    this.url = '/foo/:fooId/test/:param1?';
+
+                    this.meeSchema = {
+                        type: 'object',
+                        properties: {
+                            fooId: { type: 'integer' },
+                            param1: { type: ['string', 'null'] }
+                        }
+                    };
+                    this.getParamsMee = sinon.spy(function(request, connection) {
+                        return {
+                            fooId: request.getParam('fooId'),
+                            param1: request.getParam('param1')
+                        };
+                    });
+                })
+
+                it('returns optional param1 as null if not passed in url', function() {
+                    this.router.route([this.url, 'param1'], this.meeSchema, {
+                        get: this.getParamsMee
+                    });
+                    return this.connection.get('/foo/123/test', {
+                      query: { }
+                    })
+                    .then(function(foo) {
+                        foo.should.deep.equal({
+                            fooId: 123,
+                            param1: null
+                        });
+                    }.bind(this));
+                });
+
+                it('returns optional param1 value', function() {
+                    this.router.route([this.url, 'param1'], this.meeSchema, {
+                        get: this.getParamsMee
+                    });
+                    return this.connection.get('/foo/123/test/33', {
+                      query: { }
+                    })
+                    .then(function(foo) {
+                        foo.should.deep.equal({
+                            fooId: 123,
+                            param1: '33'
+                        });
+                    }.bind(this));
+                });
+            });
+
             it('resolves with object from callback with route having a parameter in the middle of the url', function() {
                 this.router.route(['/foo/:fooId/test', 'param1&param2&param3&param4&param5&boolParam'], this.fooSchema, {
                     get: this.getParamsFoo
@@ -750,6 +800,19 @@ describe('API Router', function() {
                 })
                 .then(function(foo) {
                     foo.should.have.property('param1', 123);
+                }.bind(this));
+            });
+
+            it('does not use default value if param passed in is set to 0', function() {
+                this.router.route(['/foo/test/:fooId', 'param1=123'], this.fooSchema, {
+                    get: this.getParamsFoo
+                });
+
+                return this.connection.get('/foo/test/123', {
+                  query: { param1: 0 }
+                })
+                .then(function(foo) {
+                    foo.should.have.property('param1', 0);
                 }.bind(this));
             });
 

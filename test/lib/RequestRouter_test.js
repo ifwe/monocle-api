@@ -39,6 +39,45 @@ describe('Request Router', function() {
         });
     });
 
+    describe('param', function() {
+        it('can be set and retrieved', function() {
+            this.requestRouter.setParam('foo', 'bar' );
+            this.requestRouter.getParam('foo').should.equal('bar');
+        });
+
+        it('returns undefined if param is not defined', function() {
+            expect(this.requestRouter.getParam('derp')).to.be.undefined;
+        });
+    });
+
+    describe('queries', function() {
+        it('can be set and retrieved', function() {
+            this.requestRouter.setQueries({ foo: 'bar' });
+            this.requestRouter.getQueries().should.deep.equal({ foo: 'bar' });
+        });
+
+        it('can retrieve individual query', function() {
+            this.requestRouter.setQueries({ foo: 'bar' });
+            this.requestRouter.getQuery('foo').should.equal('bar');
+        });
+
+        it('returns undefined if queries is not defined', function() {
+            expect(this.requestRouter.getQuery('derp')).to.be.undefined;
+        });
+    });
+
+    describe('query', function() {
+        it('can be set and retrieved', function() {
+            this.requestRouter.setQuery('foo', 'bar' );
+            this.requestRouter.getQuery('foo').should.equal('bar');
+        });
+
+        it('returns undefined if query is not defined', function() {
+            expect(this.requestRouter.getQuery('derp')).to.be.undefined;
+        });
+    });
+
+
     describe('resourceId', function() {
         it('can be set and retrieved', function() {
             this.requestRouter.setResourceId('/foo');
@@ -51,6 +90,15 @@ describe('Request Router', function() {
     });
 
     describe('resource', function() {
+        it('does not validate $ properties', function() {
+            var resource = {
+                $id: 123,
+                foo: 'bar'
+            };
+            this.requestRouter.setResource(resource);
+            this.requestRouter.getResource().should.equal(resource);
+        });
+
         it('can be set and retrieved', function() {
             var resource = {
                 foo: 'bar'
