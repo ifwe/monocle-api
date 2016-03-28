@@ -241,6 +241,78 @@ describe('API Router', function() {
                 });
             });
 
+            describe('float', function() {
+                beforeEach(function() {
+                    this.meeSchema = {
+                        type: 'object',
+                        properties: {
+                            floatParam: {type: 'float'}
+                        }
+                    };
+
+                    this.getParamsMee = sinon.spy(function(request, connection) {
+                        var result =  {
+                            floatParam: request.getQuery('floatParam')
+                        };
+
+                        return result;
+                    });
+                });
+
+               [
+                    ['2.3', 2.3],
+                    [2.4, 2.4],
+                    [1, 1],
+                    ['-.3', -0.3],
+                    ['.3', 0.3],
+                    [-2.3, -2.3]
+                ]
+                .forEach(function(data) {
+                    it('resolves with object from callback with route having a parameter that is valid '+data[0], function() {
+                        this.router.route(['/mee/test', 'floatParam'], this.meeSchema, {
+                            get: this.getParamsMee
+                        });
+
+                        return this.connection.get('/mee/test', {
+                          query: { 'floatParam' : data[0] }
+                        })
+                        .then(function(mee) {
+                            mee.should.deep.equal({
+                                floatParam: data[1]
+                            });
+                        }.bind(this))
+                    });
+
+                });
+
+               [
+                    ['1.2.3'],
+                    ['.'],
+                    ['as123.3'],
+                    ['12aa']
+                ]
+                .forEach(function(data) {
+                    it('throws an error when parameter does not validate '+data[0], function() {
+                            this.router.route(['/mee/test', 'floatParam'], this.meeSchema, {
+                                get: this.getParamsMee
+                            });
+
+                        return this.connection.get('/mee/test', {
+                          query: { 'floatParam' : data[0] }
+                        })
+                        .then(function(foo) {
+                            return Promise.reject("Not expecting an error");
+                        }.bind(this))
+                        .catch(function(error) {
+                            error.should.be.ok;
+                            error.should.have.property('code', 422);
+                            error.properties[0].should.have.property('code', 105);
+                        });
+                    });
+                });
+
+            });
+
             describe('arrays', function() {
                 beforeEach(function() {
                     this.meeSchema = {
