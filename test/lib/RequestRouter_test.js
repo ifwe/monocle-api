@@ -260,6 +260,87 @@ describe('Request Router', function() {
         });
 
         describe('validation', function() {
+            describe('posting to collection', function() {
+                beforeEach(function() {
+                    this.boundary = '---------------------BOUNDARY';
+                    this.connection = {
+                        raw: {
+                            req: {
+                                method: 'ANYTHING', // Technically any method is allowed
+                                headers: {
+                                    'content-type': 'multipart/form-data; boundary=' + this.boundary
+                                },
+                                pipe: sinon.stub()
+                            }
+                        }
+                    };
+                    this.schema = {
+                        type: 'object',
+                        properties: {
+                            items: {
+                                type: 'array',
+                                description: 'User\'s photos',
+                                items: {
+                                    type: 'object',
+                                    properties: {
+                                        photo: {
+                                            type: 'file',
+                                            mimeTypes: ['image/jpeg', 'image/png', 'image/gif'], // allowed mime types
+                                            // TODO: Support minSize somehow
+                                            // minSize: 5, // minimum size in bytes
+                                            maxSize: 20 // maximum size in bytes
+                                        }
+                                    }
+                                }
+                            },
+
+                        }
+                    };
+
+                    this.route.schema = this.schema;
+                    this.request.setMethod("POST");
+                    this.requestRouter = new RequestRouter(this.request, this.route, this.connection);
+                });
+
+                it('does not emit error event with valid photo', function() {
+                    var stream = this.requestRouter.getStream();
+                    var file = new EventEmitter();
+
+                    var errorSpy = sinon.spy();
+                    file.on('invalid', errorSpy);
+
+                    // Simulate sending the file
+                    stream.emit('file', 'photo', file, 'me.jpg', '7-bit', 'image/jpeg');
+                    file.emit('data', new Buffer('123'));
+                    file.emit('data', new Buffer('☃'));
+                    file.emit('data', new Buffer('456'));
+                    file.emit('end');
+
+                    stream.emit('finish');
+                    errorSpy.called.should.be.false;
+                });
+
+                it('emits error event if photo is too large', function(done) {
+                    var stream = this.requestRouter.getStream();
+                    var file = new EventEmitter();
+
+                    var errorSpy = sinon.spy(function(error, reason) {
+                        error.should.equal('Uploaded data for field name photo is larger than allowed maximum size of 20 bytes.');
+                        reason.should.equal(Request.ERROR_UPLOAD_TOO_LARGE);
+                        done();
+                    });
+                    file.on('invalid', errorSpy);
+
+                    // Simulate sending the file
+                    stream.emit('file', 'photo', file, 'me.jpg', '7-bit', 'image/jpeg');
+                    file.emit('data', new Buffer('☃☃☃☃☃☃☃☃☃☃')); // upload is too large; > 20 bytes
+                    file.emit('end');
+
+                    stream.emit('finish');
+                    // errorSpy.called.should.be.true;
+                });
+            })
+
             describe('with valid upload', function() {
                 [
                     'image/jpeg',       // jpeg OK
