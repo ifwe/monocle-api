@@ -1,5 +1,7 @@
 var Router = require('../../lib/Router');
 var Request = require('../../lib/Request');
+var RequestRouter = require('../../lib/RequestRouter');
+
 var Resource = require('../../lib/Resource');
 var OffsetPaginator = require('../../lib/OffsetPaginator');
 var Connection = require('../../lib/Connection');
@@ -27,11 +29,14 @@ describe('API Router', function() {
             this.fooSchema = {
                 type: 'object',
                 properties: {
+                    fooId: { type: 'integer' },
                     foo: { type: 'string' },
                     nullable: { type: ['string', 'null'] },
-                    param1: { type: 'integer' },
+                    param1: { type: ['integer', 'null'] },
                     param2: { type: 'string' },
                     param3: { type: 'string', enum: ['val1', 'val2'] },
+                    param4: { type: 'integer', enum: [2, 3] },
+                    param5: { type: ['integer', 'null'] },
                     boolParam: { type: 'boolean' }
                 }
             };
@@ -74,32 +79,38 @@ describe('API Router', function() {
         describe('connects to a resource with get parameters', function() {
             beforeEach(function() {
                 this.getParamsFoo = sinon.spy(function(request, connection) {
-                    return {
+                    var result =  {
                         id_query: request.getQuery('fooId'),
                         id_param: request.getQuery('fooId'),
                         param1: request.getQuery('param1'),
                         param2: request.getQuery('param2'),
                         param3: request.getQuery('param3'),
-                        boolParam: request.getQuery('boolParam')
+                        param4: request.getQuery('param4'),
+                        param5: request.getQuery('param5'),
+                        boolParam: request.getQuery('boolParam'),
                     };
+
+                    return result;
                 });
             });
 
             it('resolves with object from callback with route having a parameter in the middle of the url', function() {
-                this.router.route(['/foo/:fooId/test', 'param1&param2&param3&boolParam'], this.fooSchema, {
+                this.router.route(['/foo/:fooId/test', 'param1&param2&param3&param4&param5&boolParam'], this.fooSchema, {
                     get: this.getParamsFoo
                 });
 
                 return this.connection.get('/foo/123/test', {
-                  query: { param1: 1, param2: 'test', param3: 'val1', boolParam: true }
+                  query: { param1: 1, param2: 'test', param3: 'val1', param4: 2, param5: null, boolParam: 'true' }
                 })
                 .then(function(foo) {
                     foo.should.deep.equal({
-                        id_query: '123',
-                        id_param: '123',
+                        id_query: 123,
+                        id_param: 123,
                         param1: 1,
                         param2: 'test',
                         param3: 'val1',
+                        param4: 2,
+                        param5: null,
                         boolParam: true
                     });
                 }.bind(this));
@@ -111,17 +122,475 @@ describe('API Router', function() {
                 });
 
                 return this.connection.get('/foo/test/123', {
-                  query: { param1: 1, param2: 'test', boolParam: false }
+                  query: { param1: 1, param2: 'test', boolParam: true }
                 })
                 .then(function(foo) {
                     foo.should.deep.equal({
-                        id_query: '123',
-                        id_param: '123',
+                        id_query: 123,
+                        id_param: 123,
                         param1: 1,
                         param2: 'test',
-                        boolParam: false
+                        boolParam: true
                     });
                 }.bind(this));
+            });
+
+            describe('objects', function() {
+                beforeEach(function() {
+                    this.meeSchema = {
+                        type: 'object',
+                        properties: {
+                            meeId: {type: 'integer'},
+                            objectParam1:
+                                {
+                                    type: 'object',
+                                    properties:
+                                        {
+                                            enuminteg: {type: 'integer', enum: [1, 2, 4]},
+                                            integ: {type: 'integer'},
+                                            str : {type: 'string'}
+                                        }
+                                }
+                        }
+                    };
+
+
+                    this.getParamsMee = sinon.spy(function(request, connection) {
+                        var result =  {
+                            objectParam1: request.getQuery('objectParam1')
+                        };
+
+                        return result;
+                    });
+                });
+
+                it('resolves with object from callback with route having parameters that are enum, integer and string', function() {
+                    this.router.route(['/mee/test', 'objectParam1{}'], this.meeSchema, {
+                        get: this.getParamsMee
+                    });
+
+                    var pasedObject = {enuminteg: 2, integ: '3', str: 'dsdsds'};
+
+                    return this.connection.get('/mee/test', {
+                      query: { 'objectParam1{}' : pasedObject }
+                    })
+                    .then(function(mee) {
+                        mee.should.deep.equal({
+                            objectParam1: {enuminteg: 2, integ: 3, str: 'dsdsds'}
+                        });
+                    }.bind(this))
+                });
+
+                it('throws an error when parameter of type enum integer items does not validate', function() {
+                    this.router.route(['/mee/test', 'objectParam1{}'], this.meeSchema, {
+                        get: this.getParamsMee
+                    });
+
+                    var pasedObject = {enuminteg: 22};
+
+                    return this.connection.get('/mee/test', {
+                      query: { 'objectParam1{}' : pasedObject }
+                    })
+                    .then(function(foo) {
+                        return Promise.reject("Not expecting an error");
+                    }.bind(this))
+                    .catch(function(error) {
+                        error.should.be.ok;
+                        error.should.have.property('code', 422);
+                        error.properties[0].should.have.property('code', 110);
+                        error.properties[0].property.should.equal('objectParam1.enuminteg');
+                    });
+                });
+
+                it('throws an error when query is not an object', function() {
+                    this.router.route(['/mee/test', 'objectParam1{}'], this.meeSchema, {
+                        get: this.getParamsMee
+                    });
+
+                    return this.connection.get('/mee/test', {
+                      query: { 'objectParam1{}' : 1234 }
+                    })
+                    .then(function(foo) {
+                        return Promise.reject("Not expecting an error");
+                    }.bind(this))
+                    .catch(function(error) {
+                        error.should.be.ok;
+                        error.should.have.property('code', 422);
+                        error.properties[0].should.have.property('code', 105);
+                        error.properties[0].property.should.equal('objectParam1');
+                    });
+                });
+
+                it('throws an error when query is not a valid JSON object', function() {
+                    this.router.route(['/mee/test', 'objectParam1{}'], this.meeSchema, {
+                        get: this.getParamsMee
+                    });
+
+                    return this.connection.get('/mee/test', {
+                      query: { 'objectParam1{}' : '{dsds: 123}' }
+                    })
+                    .then(function(foo) {
+                        return Promise.reject("Not expecting an error");
+                    }.bind(this))
+                    .catch(function(error) {
+                        error.should.be.ok;
+                        error.should.have.property('code', 422);
+                        error.properties[0].should.have.property('code', 105);
+                        error.properties[0].property.should.equal('objectParam1');
+                    });
+                });
+            });
+
+            describe('float', function() {
+                beforeEach(function() {
+                    this.meeSchema = {
+                        type: 'object',
+                        properties: {
+                            floatParam: {type: 'float'}
+                        }
+                    };
+
+                    this.getParamsMee = sinon.spy(function(request, connection) {
+                        var result =  {
+                            floatParam: request.getQuery('floatParam')
+                        };
+
+                        return result;
+                    });
+                });
+
+               [
+                    ['2.3', 2.3],
+                    [2.4, 2.4],
+                    [1, 1],
+                    ['-.3', -0.3],
+                    ['.3', 0.3],
+                    [-2.3, -2.3]
+                ]
+                .forEach(function(data) {
+                    it('resolves with object from callback with route having a parameter that is valid '+data[0], function() {
+                        this.router.route(['/mee/test', 'floatParam'], this.meeSchema, {
+                            get: this.getParamsMee
+                        });
+
+                        return this.connection.get('/mee/test', {
+                          query: { 'floatParam' : data[0] }
+                        })
+                        .then(function(mee) {
+                            mee.should.deep.equal({
+                                floatParam: data[1]
+                            });
+                        }.bind(this))
+                    });
+
+                });
+
+               [
+                    ['1.2.3'],
+                    ['.'],
+                    ['as123.3'],
+                    ['12aa']
+                ]
+                .forEach(function(data) {
+                    it('throws an error when parameter does not validate '+data[0], function() {
+                            this.router.route(['/mee/test', 'floatParam'], this.meeSchema, {
+                                get: this.getParamsMee
+                            });
+
+                        return this.connection.get('/mee/test', {
+                          query: { 'floatParam' : data[0] }
+                        })
+                        .then(function(foo) {
+                            return Promise.reject("Not expecting an error");
+                        }.bind(this))
+                        .catch(function(error) {
+                            error.should.be.ok;
+                            error.should.have.property('code', 422);
+                            error.properties[0].should.have.property('code', 105);
+                        });
+                    });
+                });
+
+            });
+
+            describe('arrays', function() {
+                beforeEach(function() {
+                    this.meeSchema = {
+                        type: 'object',
+                        properties: {
+                            meeId: {type: 'integer'},
+                            arrayParam1: { type: 'array', items: {type: ['string']} },
+                            arrayParam2: { type: 'array', items: {type: ['integer', 'null'], enum: [1, 2, 3, 4]} }
+
+                        }
+                    };
+
+                    this.getParamsMee = sinon.spy(function(request, connection) {
+                        var result =  {
+                            arrayParam1: request.getQuery('arrayParam1'),
+                            arrayParam2: request.getQuery('arrayParam2')
+
+                        };
+
+                        return result;
+                    });
+                });
+
+                it('resolves with object from callback with route having a parameter that is an array of string items', function() {
+                    this.router.route(['/mee/test', 'arrayParam1[]'], this.meeSchema, {
+                        get: this.getParamsMee
+                    });
+
+                    var passedArray = ['yoo', 'wassup'];
+
+                    return this.connection.get('/mee/test', {
+                      query: { 'arrayParam1[]' : passedArray }
+                    })
+                    .then(function(mee) {
+                        mee.should.deep.equal({
+                            arrayParam1: passedArray
+                        });
+                    }.bind(this))
+                });
+
+                it('resolves with object from callback with route having a parameter that is an array of enum integer items', function() {
+                    this.router.route(['/mee/test', 'arrayParam2[]'], this.meeSchema, {
+                        get: this.getParamsMee
+                    });
+
+                    var passedArray = ['1', 4];
+
+                    return this.connection.get('/mee/test', {
+                      query: { 'arrayParam2[]' : passedArray }
+                    })
+                    .then(function(mee) {
+                        mee.should.deep.equal({
+                            arrayParam2: [1, 4]
+                        });
+                    }.bind(this))
+                });
+
+                it('throws an error when parameter of type enum integer items does not validate', function() {
+                    this.router.route(['/mee/test', 'arrayParam2[]'], this.meeSchema, {
+                        get: this.getParamsMee
+                    });
+
+                    var passedArray = [1, 14];
+
+                    return this.connection.get('/mee/test', {
+                      query: { 'arrayParam2[]' : passedArray }
+                    })
+                    .then(function(foo) {
+                        return Promise.reject("Not expecting an error");
+                    }.bind(this))
+                    .catch(function(error) {
+                        error.should.be.ok;
+                        error.should.have.property('code', 422);
+                        error.properties[0].should.have.property('code', 110);
+                    });
+                });
+
+                it('throws an error when query is not an array', function() {
+                    this.router.route(['/mee/test', 'arrayParam2[]'], this.meeSchema, {
+                        get: this.getParamsMee
+                    });
+
+                    var passedArray = 123;
+
+                    return this.connection.get('/mee/test', {
+                      query: { 'arrayParam2[]' : passedArray }
+                    })
+                    .then(function(foo) {
+                        return Promise.reject("Not expecting an error");
+                    }.bind(this))
+                    .catch(function(error) {
+                        error.should.be.ok;
+                        error.should.have.property('code', 422);
+                        error.properties[0].should.have.property('code', 105);
+                    });
+                });
+            });
+
+            describe('param having multiple types', function() {
+                beforeEach(function() {
+                    this.meeSchema = {
+                        type: 'object',
+                        properties: {
+                            paramIntAndBool: {type: ['integer', 'boolean']},
+                            paramIntAndFloat: {type: ['integer', 'float']},
+                            paramStringAndBooleanAndInt: {type: ['integer', 'string', 'boolean']},
+                            paramArrayAndString: {type: ['array', 'string'], items: {type: 'integer'}},
+                            paramArrayAndObject: {type: ['object', 'string'], properties: { test: {type: 'integer'}}}
+                        }
+                    };
+
+                    this.getParamsMee = sinon.spy(function(request, connection) {
+                        var result =  {
+                            paramIntAndBool: request.getQuery('paramIntAndBool'),
+                            paramIntAndFloat: request.getQuery('paramIntAndFloat'),
+                            paramStringAndBooleanAndInt: request.getQuery('paramStringAndBooleanAndInt'),
+                            paramArrayAndString: request.getQuery('paramArrayAndString'),
+                            paramArrayAndObject: request.getQuery('paramArrayAndObject')
+
+                        };
+
+                        return result;
+                    });
+                });
+
+                it('does not throw error if param is a string with type string and array', function() {
+                    this.router.route(['/mee/test', 'paramArrayAndString'], this.meeSchema, {
+                        get: this.getParamsMee
+                    });
+
+                    return this.connection.get('/mee/test', {
+                      query: { paramArrayAndString: 'yoo'}
+                    })
+                    .then(function(foo) {
+                        foo.should.deep.equal({
+                            paramArrayAndString: 'yoo'
+                        });
+                    }.bind(this));
+                });
+
+                it('does not throw error if param is an array with type string and array', function() {
+                    this.router.route(['/mee/test', 'paramArrayAndString[]'], this.meeSchema, {
+                        get: this.getParamsMee
+                    });
+
+                    return this.connection.get('/mee/test', {
+                      query: { 'paramArrayAndString[]': ['1']}
+                    })
+                    .then(function(foo) {
+                        foo.should.deep.equal({
+                            paramArrayAndString: [1]
+                        });
+                    }.bind(this));
+                });
+
+                it('does not throw error if param is a string with type string and object', function() {
+                    this.router.route(['/mee/test', 'paramArrayAndObject'], this.meeSchema, {
+                        get: this.getParamsMee
+                    });
+
+                    return this.connection.get('/mee/test', {
+                      query: { paramArrayAndObject: 'yoo'}
+                    })
+                    .then(function(foo) {
+                        foo.should.deep.equal({
+                            paramArrayAndObject: 'yoo'
+                        });
+                    }.bind(this));
+                });
+
+                it('does not throw error if param is an object with type string and object', function() {
+                    this.router.route(['/mee/test', 'paramArrayAndObject{}'], this.meeSchema, {
+                        get: this.getParamsMee
+                    });
+
+                    return this.connection.get('/mee/test', {
+                      query: { 'paramArrayAndObject{}': {test: 1}}
+                    })
+                    .then(function(foo) {
+                        foo.should.deep.equal({
+                            paramArrayAndObject: {test: 1}
+                        });
+                    }.bind(this));
+                });
+
+
+                it('does not throw error if param is a boolean with type int and boolean', function() {
+                    this.router.route(['/mee/test', 'paramIntAndBool'], this.meeSchema, {
+                        get: this.getParamsMee
+                    });
+
+                    return this.connection.get('/mee/test', {
+                      query: { paramIntAndBool: true}
+                    })
+                    .then(function(foo) {
+                        foo.should.deep.equal({
+                            paramIntAndBool: true
+                        });
+                    }.bind(this));
+                });
+
+                it('does not throw error if param is an integer with type int and boolean', function() {
+                    this.router.route(['/mee/test', 'paramIntAndBool'], this.meeSchema, {
+                        get: this.getParamsMee
+                    });
+
+                    return this.connection.get('/mee/test', {
+                      query: { paramIntAndBool: '12'}
+                    })
+                    .then(function(foo) {
+                        foo.should.deep.equal({
+                            paramIntAndBool: 12
+                        });
+                    }.bind(this));
+                });
+
+                it('throws an error if param is a string with type int and boolean', function() {
+                    this.router.route(['/mee/test', 'paramIntAndBool'], this.meeSchema, {
+                        get: this.getParamsMee
+                    });
+
+                    return this.connection.get('/mee/test', {
+                      query: { paramIntAndBool: '123not an integer' }
+                    })
+                    .then(function(foo) {
+                        return Promise.reject("Not expecting an error");
+                    }.bind(this))
+                    .catch(function(error) {
+                        error.should.be.ok;
+                        error.should.have.property('code', 422);
+                        error.properties[0].should.have.property('code', 105);
+                    });
+                });
+
+                it('does not throw error if param is an integer with type int and float', function() {
+                    this.router.route(['/mee/test', 'paramIntAndFloat'], this.meeSchema, {
+                        get: this.getParamsMee
+                    });
+
+                    return this.connection.get('/mee/test', {
+                      query: { paramIntAndFloat: 12}
+                    })
+                    .then(function(foo) {
+                        foo.should.deep.equal({
+                            paramIntAndFloat: 12
+                        });
+                    }.bind(this));
+                });
+
+                it('does not throw error if param is a float with type int and float', function() {
+                    this.router.route(['/mee/test', 'paramIntAndFloat'], this.meeSchema, {
+                        get: this.getParamsMee
+                    });
+
+                    return this.connection.get('/mee/test', {
+                      query: { paramIntAndFloat: '12.233'}
+                    })
+                    .then(function(foo) {
+                        foo.should.deep.equal({
+                            paramIntAndFloat: 12.233
+                        });
+                    }.bind(this));
+                });
+
+                it('does not throw error if param is a string with type int, boolean and string', function() {
+                    this.router.route(['/mee/test', 'paramStringAndBooleanAndInt'], this.meeSchema, {
+                        get: this.getParamsMee
+                    });
+
+                    return this.connection.get('/mee/test', {
+                      query: { paramStringAndBooleanAndInt: 'yooo'}
+                    })
+                    .then(function(foo) {
+                        foo.should.deep.equal({
+                            paramStringAndBooleanAndInt: 'yooo'
+                        });
+                    }.bind(this));
+                });
             });
 
             it('excludes query string parameters that are not defined on the route', function() {
@@ -134,14 +603,14 @@ describe('API Router', function() {
                 })
                 .then(function(foo) {
                     foo.should.deep.equal({
-                        id_query: '123',
-                        id_param: '123',
+                        id_query: 123,
+                        id_param: 123,
                         param1: 1
                     });
                 }.bind(this));
             });
 
-            it('throws an error when query string parameter of type string does not validate', function() {
+            it('throws an error when query string parameter of type integer does not validate', function() {
                 this.router.route(['/foo/test/:fooId', 'param1'], this.fooSchema, {
                     get: this.getParamsFoo
                 });
@@ -157,6 +626,46 @@ describe('API Router', function() {
                     error.should.have.property('code', 422);
                     error.properties[0].should.have.property('code', 105);
                 });
+            });
+
+            it('throws multiple errors when multiple parameters do not validate', function() {
+                this.router.route(['/foo/test/:fooId', 'param1&param5'], this.fooSchema, {
+                    get: this.getParamsFoo
+                });
+
+                return this.connection.get('/foo/test/123', {
+                  query: { param1: 'not an integer', param5: 'not an integer' }
+                })
+                .then(function(foo) {
+                    return Promise.reject("Not expecting an error");
+                }.bind(this))
+                .catch(function(error) {
+                    error.should.be.ok;
+                    error.should.have.property('code', 422);
+                    error.properties[0].should.have.property('code', 105);
+                    error.properties[0].should.have.property('property', 'param1');
+                    error.properties[1].should.have.property('property', 'param5');
+                    error.properties.length.should.equal(2);
+                });
+            });
+
+            it('throws an error when query string parameter of type boolean does not validate', function() {
+                this.router.route(['/foo/test/:fooId', 'boolParam'], this.fooSchema, {
+                    get: this.getParamsFoo
+                });
+
+                return this.connection.get('/foo/test/123', {
+                    query: { boolParam: 'not an boolean' }
+                 })
+                .then(function(foo) {
+                    return Promise.reject("Not expecting an error");
+                }.bind(this))
+                .catch(function(error) {
+                    error.should.be.ok;
+                    error.should.have.property('code', 422);
+                    error.properties[0].should.have.property('code', 105);
+                });
+
             });
 
             it('throws an error when query string parameter does not validate against available enum values', function() {
@@ -177,13 +686,13 @@ describe('API Router', function() {
                     });
             });
 
-            it('throws an error when query string parameter of type boolean does not validate', function() {
-                this.router.route(['/foo/test/:fooId', 'boolParam'], this.fooSchema, {
+            it('throws an error when query integer parameter does not validate against array value', function() {
+                this.router.route(['/foo/test/:fooId', 'param4'], this.fooSchema, {
                     get: this.getParamsFoo
                 });
 
                 return this.connection.get('/foo/test/123', {
-                        query: { boolParam: 'not an boolean' }
+                        query: { param4: [44] }
                     })
                     .then(function(foo) {
                         return Promise.reject("Not expecting an error");
@@ -191,11 +700,47 @@ describe('API Router', function() {
                     .catch(function(error) {
                         error.should.be.ok;
                         error.should.have.property('code', 422);
-                        error.properties[0].should.have.property('code', 105);
+                        error.properties[0].should.have.property('code', 110);
                     });
             });
 
-            it('uses default value if not provided in request', function() {
+            it('throws an error when query integer parameter does not validate against object value', function() {
+                this.router.route(['/foo/test/:fooId', 'param4'], this.fooSchema, {
+                    get: this.getParamsFoo
+                });
+
+                return this.connection.get('/foo/test/123', {
+                        query: { param4: {'dsds': 3} }
+                    })
+                    .then(function(foo) {
+                        return Promise.reject("Not expecting an error");
+                    }.bind(this))
+                    .catch(function(error) {
+                        error.should.be.ok;
+                        error.should.have.property('code', 422);
+                        error.properties[0].should.have.property('code', 110);
+                    });
+            });
+
+            it('throws an error when query integer parameter does not validate against available enum values', function() {
+                this.router.route(['/foo/test/:fooId', 'param4'], this.fooSchema, {
+                    get: this.getParamsFoo
+                });
+
+                return this.connection.get('/foo/test/123', {
+                        query: { param4: 44 }
+                    })
+                    .then(function(foo) {
+                        return Promise.reject("Not expecting an error");
+                    }.bind(this))
+                    .catch(function(error) {
+                        error.should.be.ok;
+                        error.should.have.property('code', 422);
+                        error.properties[0].should.have.property('code', 110);
+                    });
+            });
+
+            it('uses default value if not provided in request for type integer only', function() {
                 this.router.route(['/foo/test/:fooId', 'param1=123'], this.fooSchema, {
                     get: this.getParamsFoo
                 });
@@ -208,7 +753,20 @@ describe('API Router', function() {
                 }.bind(this));
             });
 
-            it('uses `undefined` value if not provided in request and no default', function() {
+            it('uses default value if not provided in request for property having both types: integer and null', function() {
+                this.router.route(['/foo/test/:fooId', 'param5=123'], this.fooSchema, {
+                    get: this.getParamsFoo
+                });
+
+                return this.connection.get('/foo/test/123', {
+                  query: { /* empty */ }
+                })
+                .then(function(foo) {
+                    foo.should.have.property('param5', 123);
+                }.bind(this));
+            });
+
+            it('uses `undefined` value if query not provided in request and no default is set in the router route', function() {
                 this.router.route(['/foo/test/:fooId', 'param1&param2'], this.fooSchema, {
                     get: this.getParamsFoo
                 });
@@ -221,6 +779,19 @@ describe('API Router', function() {
                     expect(foo.param2).to.be.undefined;
                 }.bind(this));
             });
+
+            it('uses `undefined` value if no options provided in request and no default', function() {
+                this.router.route(['/foo/test/:fooId', 'param1&param2'], this.fooSchema, {
+                    get: this.getParamsFoo
+                });
+
+                return this.connection.get('/foo/test/123')
+                .then(function(foo) {
+                    expect(foo.param1).to.be.undefined;
+                    expect(foo.param2).to.be.undefined;
+                }.bind(this));
+            });
+
         });
 
         describe('calls associated callbacks', function() {
@@ -228,9 +799,10 @@ describe('API Router', function() {
                 this.connection.get('/foo/123')
                 .then(function(foo) {
                     this.getFooSpy.called.should.be.true;
-                    var request = this.getFooSpy.lastCall.args[0];
-                    request.should.be.instanceOf(Request);
-                    request.getParam('fooId').should.equal('123');
+                    var requestRouter = this.getFooSpy.lastCall.args[0];
+
+                    requestRouter.should.be.instanceOf(RequestRouter);
+                    requestRouter.getParam('fooId').should.equal(123);
 
                     var connection = this.getFooSpy.lastCall.args[1];
                     connection.should.be.instanceOf(Connection);
@@ -313,7 +885,7 @@ describe('API Router', function() {
                     });
 
                     it('calls associated function with props passed in', function() {
-                        this.connection.get('/multiple-handlers/123?props=foo')
+                        this.connection.get('/multiple-handlers/123', {props: ['foo']})
                         .then(function(foo) {
                             this.getTeeSpy.called.should.be.false;
                             this.getFooSpy.called.should.be.true;
@@ -456,45 +1028,168 @@ describe('API Router', function() {
             });
         });
 
-        describe('post to collection', function() {
+        describe('post', function() {
             beforeEach(function() {
-                this.collectionSchema = {
+                this.postSchema = {
                     type: 'object',
                     properties: {
-                        items: {
+                        param2: {
+                            type: 'object',
+                            properties: {
+                                obj1: {type: 'string'},
+                                obj2: {type: 'integer'}
+                            }
+                        },
+                        param3: {
                             type: 'array',
                             items: {
-                                type: 'object',
-                                properties: {
-                                    foo: { type: 'string' },
-                                    bar: { type: 'string' }
+                                type: 'string',
+                                enum: ['hola']
+                            }
+                        },
+                        param4: {type: 'integer'}
+                    }
+                };
+                this.postObjSpy = sinon.spy(function(request, connection) {
+                    var resource = request.getResource();
+                    return {
+                        param2: resource.param2,
+                        param3: resource.param3
+                    };
+                });
+                this.router.route('/postit', this.postSchema, {
+                    post: this.postObjSpy
+                });
+            });
+
+            describe('to collection', function() {
+                beforeEach(function() {
+                    this.collectionSchema = {
+                        type: 'object',
+                        properties: {
+                            items: {
+                                type: 'array',
+                                items: {
+                                    type: 'object',
+                                    properties: {
+                                        foo: { type: 'string' },
+                                        bar: { type: 'string' }
+                                    }
                                 }
                             }
                         }
-                    }
-                };
+                    };
 
-                this.postSpy = sinon.spy(function(request, params) {
-                    return { $httpStatus: 201 };
+                    this.postSpy = sinon.spy(function(request, params) {
+                        return { $httpStatus: 201 };
+                    });
+
+                    this.router.route('/collection', this.collectionSchema, {
+                        post: this.postSpy
+                    });
                 });
 
-                this.router.route('/collection', this.collectionSchema, {
-                    post: this.postSpy
+                it('uses item schema for validation', function() {
+                    var item = {
+                        foo: 'test foo',
+                        bar: 'test bar'
+                    };
+                    return this.connection.post('/collection', {
+                        resource: item
+                    }).then(function(result) {
+                        result.should.be.ok;
+                    });
                 });
             });
 
-            it('uses item schema for validation', function() {
+            describe('an object', function() {
+                it('that is valid', function() {
+                    var item = {
+                        param2: {
+                            obj1: 'hey',
+                            obj2: 3232
+                        }
+                    };
+                    return this.connection.post('/postit', {
+                        resource: item
+                    }).then(function(result) {
+                        result.param2.should.deep.equal(item.param2);
+                    });
+                })
+
+                it('throws an error if object is not valid', function() {
+                    var item = {
+                        param2: {
+                            obj1: 'hey',
+                            obj2: 'yoo this is invalid integer'
+                        }
+                    };
+                    return this.connection.post('/postit', {
+                        resource: item
+                    }).catch(function(error) {
+                        error.should.be.ok;
+                        error.should.have.property('code', 422);
+                        error.properties[0].should.have.property('code', 105);
+                        error.properties[0].property.should.equal('param2.obj2');
+                    });
+                })
+            });
+
+            describe('an array', function() {
+                it('that is valid', function() {
+                    var item = {
+                        param3: ['hola']
+                    };
+                    return this.connection.post('/postit', {
+                        resource: item
+                    }).then(function(result) {
+                        result.param3.should.deep.equal(item.param3);
+                    });
+                })
+
+                it('throws an error if array is not valid', function() {
+                    var item = {
+                        param3: ['hey']
+                    };
+                    return this.connection.post('/postit', {
+                        resource: item
+                    }).catch(function(error) {
+                        error.should.be.ok;
+                        error.should.have.property('code', 422);
+                        error.properties[0].should.have.property('code', 110);
+                        error.properties[0].property.should.equal('param3');
+                    })
+                })
+            });
+
+            it('throws an error if integer item is an array', function() {
                 var item = {
-                    foo: 'test foo',
-                    bar: 'test bar'
+                    param4: ['hey']
                 };
-                return this.connection.post('/collection', {
+                return this.connection.post('/postit', {
                     resource: item
-                }).then(function(result) {
-                    result.should.be.ok;
-                });
+                }).catch(function(error) {
+                    error.should.be.ok;
+                    error.should.have.property('code', 422);
+                    error.properties[0].should.have.property('code', 105);
+                    error.properties[0].property.should.equal('param4');
+                })
             });
-        });
+            it('throws an error if integer item is an object', function() {
+                var item = {
+                    param4: {'hey': 123}
+                };
+                return this.connection.post('/postit', {
+                    resource: item
+                }).catch(function(error) {
+                    error.should.be.ok;
+                    error.should.have.property('code', 422);
+                    error.properties[0].should.have.property('code', 105);
+                    error.properties[0].property.should.equal('param4');
+                })
+            });
+
+        })
 
         describe('errors', function() {
             var httpStatusCodes = new HttpStatusCodes();
@@ -675,7 +1370,8 @@ describe('API Router', function() {
                             this.router.route('/collection', this.collectionSchema, {
                                 post: function(request, connection) {
                                     // Return a property error
-                                    return request.propertyError(data[0], 1000);
+                                    request.addPropertyError(data[0], 1000);
+                                    return request.error(422, 'invalid');
                                 }
                             });
 
@@ -713,7 +1409,8 @@ describe('API Router', function() {
                             this.router.route('/collection', this.collectionSchema, {
                                 post: function(request, connection) {
                                     // Return a property error
-                                    return request.propertyError(data, 1000);
+                                    request.addPropertyError(data, 1000);
+                                    return request.error(422, 'invalid');
                                 }
                             });
 
@@ -724,8 +1421,7 @@ describe('API Router', function() {
                             .catch(function(error) {
                                 error.should.be.ok;
                                 error.should.have.property('properties');
-                                error.properties.should.be.empty;
-
+                                error.properties[0].code.should.equal(200);
                             }.bind(this));
                         });
                     });
@@ -739,8 +1435,8 @@ describe('API Router', function() {
                                 foo: { type: 'string' }
                             }
                         }, {
-                            get: function() {
-                                return this.router.error(data.code, 'test_message');
+                            get: function(request, connection) {
+                                return request.error(data.code, 'test_message');
                             }.bind(this)
                         });
 
@@ -762,8 +1458,8 @@ describe('API Router', function() {
                                 foo: { type: 'string' }
                             }
                         }, {
-                            get: function() {
-                                return this.router.error(data.code, 'test_message');
+                            get: function(request, connection) {
+                                return request.error(data.code, 'test_message');
                             }.bind(this)
                         });
 
@@ -784,8 +1480,8 @@ describe('API Router', function() {
                                 foo: { type: 'string' }
                             }
                         }, {
-                            get: function() {
-                                return this.router.error(data.code, 'test_message');
+                            get: function(request, connection) {
+                                return request.error(data.code, 'test_message');
                             }.bind(this)
                         });
 
@@ -808,8 +1504,8 @@ describe('API Router', function() {
                                 foo: { type: 'string' }
                             }
                         }, {
-                            get: function() {
-                                return this.router.error(data.code);
+                            get: function(request, connection) {
+                                return request.error(data.code);
                             }.bind(this)
                         });
 
@@ -841,7 +1537,8 @@ describe('API Router', function() {
                         }, {
                             patch: function(request, connection) {
                                 // Return a property error
-                                return request.propertyError('displayName', 1000);
+                                request.addPropertyError('displayName', 1000);
+                                return request.error(422, 'invalid');
                             }
                         });
 
@@ -881,7 +1578,8 @@ describe('API Router', function() {
                         }, {
                             patch: function(request, connection) {
                                 // Return a property error
-                                return request.propertyError('displayName', 1000);
+                                request.addPropertyError('displayName', 1000);
+                                return request.error(422, 'invalid');
                             }
                         });
 
@@ -1041,6 +1739,7 @@ describe('API Router', function() {
                         this.itemSchema = {
                             type: 'object',
                             properties: {
+                                id: {type: 'integer'},
                                 foo: { type: 'string' },
                                 bar: { type: 'string' }
                             }
@@ -1131,6 +1830,7 @@ describe('API Router', function() {
                         this.itemSchema = {
                             type: 'object',
                             properties: {
+                                id: {type: 'integer'},
                                 foo: { type: 'string' },
                                 bar: { type: 'string' }
                             }
@@ -1216,12 +1916,13 @@ describe('API Router', function() {
         })
 
 
-
         describe('with deeply nested collections of symlinks', function() {
             beforeEach(function() {
                 this.grandchildSchema = {
                     type: 'object',
                     properties: {
+                        childId : {type: 'integer'},
+                        grandchildId : {type: 'integer'},
                         foo: { type: 'string' },
                         bar: { type: 'string' }
                     }
@@ -1230,6 +1931,7 @@ describe('API Router', function() {
                 this.childSchema = {
                     type: 'object',
                     properties: {
+                        childId : {type: 'integer'},
                         children: { type: 'array', items: this.grandchildSchema },
                     }
                 };
@@ -1578,7 +2280,7 @@ describe('API Router', function() {
                 }
             }, {
                 post: function(request, connection) {
-                    return this.router.status(201);
+                    return request.status(201);
                 }.bind(this)
             });
             this.connection = new Connection(this.router, {}, {});
@@ -1603,7 +2305,7 @@ describe('API Router', function() {
                     {
                         props: ['foo'],
                         callback: function(request, connection) {
-                            return this.router.status(199, {
+                            return request.status(199, {
                                 code: 199,
                                 error: 'test_error',
                                 message: 'test_message',
@@ -1637,7 +2339,7 @@ describe('API Router', function() {
                     {
                         props: ['foo'],
                         callback: function(request, connection) {
-                            return this.router.status(300, {
+                            return request.status(300, {
                                 code: 300,
                                 error: 'test_error',
                                 message: 'test_message',
@@ -1773,6 +2475,8 @@ describe('API Router', function() {
                 this.grandChildSchema = {
                     type: 'object',
                     properties: {
+                        childId: {type: 'integer'},
+                        grandChildId: {type: 'integer'},
                         derp: { type: 'string' },
                         flerp: { type: 'string' },
                         obj: {
@@ -1788,6 +2492,7 @@ describe('API Router', function() {
                 this.childSchema = {
                     type: 'object',
                     properties: {
+                        childId: {type: 'integer'},
                         foo: { type: 'string' },
                         bar: { type: 'string' },
                         obj: {
@@ -1812,6 +2517,8 @@ describe('API Router', function() {
                 this.parentSchema = {
                     type: 'object',
                     properties: {
+                        childId: {type: 'integer'},
+                        grandChildId: {type: 'integer'},
                         children: this.childrenSchema
                     }
                 };
@@ -2243,6 +2950,7 @@ describe('API Router', function() {
                 this.schema = {
                     type: 'object',
                     properties: {
+                        fooId: {type: 'integer'},
                         bar: { type: 'string' }
                     }
                 };
@@ -2266,7 +2974,7 @@ describe('API Router', function() {
                     this.eventSpy.lastCall.args[0].should.have.property('resourceId', this.resourceId);
                     this.eventSpy.lastCall.args[0].should.have.property('schema', this.schema);
                     this.eventSpy.lastCall.args[0].should.have.property('request');
-                    this.eventSpy.lastCall.args[0].request.should.be.instanceOf(Request);
+                    this.eventSpy.lastCall.args[0].request.should.be.instanceOf(RequestRouter);
                     done();
                 }.bind(this));
             });
@@ -2303,6 +3011,7 @@ describe('API Router', function() {
                 this.schema = {
                     type: 'object',
                     properties: {
+                        fooId: {type: 'integer'},
                         bar: { type: 'string' }
                     }
                 };
@@ -2330,7 +3039,6 @@ describe('API Router', function() {
                     this.eventSpy.lastCall.args[0].should.have.property('resourceId', '/bad-resource');
                     this.eventSpy.lastCall.args[0].should.have.property('request');
                     this.eventSpy.lastCall.args[0].should.have.property('schema', null);
-                    this.eventSpy.lastCall.args[0].request.should.be.instanceOf(Request);
                     done();
                 }.bind(this));
             });
@@ -2363,9 +3071,12 @@ describe('API Router', function() {
         beforeEach(function() {
             this.router = new Router();
 
-            this.fooGetSpy = sinon.spy(function() {
+            this.fooGetSpy = sinon.spy(function(request) {
                 return {
-                    bar: 'test_bar'
+                    test1: request.getQuery('test1'),
+                    bar: 'test_bar',
+                    test2: request.getQuery('test2'),
+                    test3: request.getQuery('test3')
                 };
             });
             this.fooPostSpy = sinon.spy(function(request) {
@@ -2402,11 +3113,23 @@ describe('API Router', function() {
             });
 
             // Configure router
-            this.router.route(['/foo', 'test1'], {
+            this.router.route(['/foo', 'test1=hi&test2[]&test3{}'], {
                 type: 'object',
                 properties: {
                     bar: { type: 'string' },
-                    test1: { type: 'string' }
+                    test1: { type: 'string' },
+                    test2: {
+                        type: 'array',
+                        items : {
+                           type: 'integer'
+                        }
+                    },
+                    test3: {
+                        type: 'object',
+                        properties: {
+                            object1: {type: 'integer'}
+                        }
+                    }
                 }
             }, {
                 get: this.fooGetSpy,
@@ -2431,7 +3154,7 @@ describe('API Router', function() {
                 type: 'object',
                 properties: {
                     foo: {
-                        type: 'sting',
+                        type: 'string',
                         enum: ['bar', 'baz']
                     }
                 }
@@ -2468,7 +3191,7 @@ describe('API Router', function() {
         describe('GET request matching API endpoint', function() {
             beforeEach(function() {
                 this.req.method ='GET';
-                this.req.url = '/foo?props=bar';
+                this.req.url = '/foo?props=bar,test1';
                 this.middleware = this.router.middleware();
             });
 
@@ -2485,6 +3208,68 @@ describe('API Router', function() {
                     this.res.setHeader.calledWith('Content-Type', 'application/json').should.be.true;
                     done();
                 }.bind(this));
+                this.middleware(this.req, this.res, this.next);
+            });
+
+            describe('if speficied in url returns default get parameter', function() {
+                it('which is a string', function(done) {
+                    this.req.url = '/foo?props=bar,test1&test1=hello';
+                    this.middleware = this.router.middleware();
+                    this.res.end = sinon.spy(function() {
+                        this.res.end.lastCall.args[0].should.be.ok;
+                        var obj = JSON.parse(this.res.end.lastCall.args[0]);
+
+                        obj.should.contain({
+                            test1: 'hello'
+                        });
+
+                        done();
+                    }.bind(this));
+
+                    this.middleware(this.req, this.res, this.next);
+                });
+
+                it('which is an array', function(done) {
+                    this.req.url = '/foo?props=test2&test2[]=[1, 2]';
+                    this.middleware = this.router.middleware();
+                    this.res.end = sinon.spy(function() {
+                        this.res.end.lastCall.args[0].should.be.ok;
+                        var obj = JSON.parse(this.res.end.lastCall.args[0]);
+                        obj.test2.should.deep.equal([1, 2]);
+
+                        done();
+                    }.bind(this));
+
+                    this.middleware(this.req, this.res, this.next);
+                });
+
+                it('get parameter is an object', function(done) {
+                    this.req.url = '/foo?test3{}={"object1": 23}';
+                    this.middleware = this.router.middleware();
+                    this.res.end = sinon.spy(function() {
+                        this.res.end.lastCall.args[0].should.be.ok;
+                        var obj = JSON.parse(this.res.end.lastCall.args[0]);
+                        obj.test3.should.deep.equal({object1: 23});
+
+                        done();
+                    }.bind(this));
+
+                    this.middleware(this.req, this.res, this.next);
+                });
+            });
+
+            it('returns default get parameter if not speficied in url', function(done) {
+                this.res.end = sinon.spy(function() {
+                    this.res.end.lastCall.args[0].should.be.ok;
+                    var obj = JSON.parse(this.res.end.lastCall.args[0]);
+
+                    obj.should.contain({
+                        test1: 'hi'
+                    });
+
+                    done();
+                }.bind(this));
+
                 this.middleware(this.req, this.res, this.next);
             });
 
@@ -2583,7 +3368,7 @@ describe('API Router', function() {
                     }
                 }, {
                     post: function(request) {
-                        return this.router.status(201);
+                        return request.status(201);
                     }.bind(this)
                 });
                 this.middleware = this.router.middleware();
@@ -2610,7 +3395,7 @@ describe('API Router', function() {
                     }
                 }, {
                     post: function(request) {
-                        return this.router.status(201, {
+                        return request.status(201, {
                             anything: 'canary'
                         });
                     }.bind(this)
@@ -2674,7 +3459,9 @@ describe('API Router', function() {
                         type: 'object',
                         properties: {
                             bar: { type: 'string' },
-                            test1: { type: 'string' }
+                            test1: { type: 'string' },
+                            test2: {type: 'array', items: {type: 'integer'}},
+                            test3: {type: 'object', properties: {object1: {type: 'integer'}}}
                         }
                     });
                     done();
