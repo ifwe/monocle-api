@@ -809,6 +809,7 @@ describe('API Router', function() {
                     });
             });
 
+
             it('uses default value if not provided in request for type integer only', function() {
                 this.router.route(['/foo/test/:fooId', 'param1=123'], this.fooSchema, {
                     get: this.getParamsFoo
@@ -1129,14 +1130,16 @@ describe('API Router', function() {
                                 enum: ['hola']
                             }
                         },
-                        param4: {type: 'integer'}
+                        param4: {type: 'integer'},
+                        param5: {type: 'date-time'}
                     }
                 };
                 this.postObjSpy = sinon.spy(function(request, connection) {
                     var resource = request.getResource();
                     return {
                         param2: resource.param2,
-                        param3: resource.param3
+                        param3: resource.param3,
+                        param5: resource.param5
                     };
                 });
                 this.router.route('/postit', this.postSchema, {
@@ -1217,6 +1220,21 @@ describe('API Router', function() {
                 })
             });
 
+
+            describe('a date-time', function() {
+                it('that is valid', function() {
+                    var date = new Date();
+                    var item = {
+                        param5: date
+                    };
+                    return this.connection.post('/postit', {
+                        resource: item
+                    }).then(function(result) {
+                        result.param5.should.deep.equal(date);
+                    });
+                })
+            });
+
             describe('an array', function() {
                 it('that is valid', function() {
                     var item = {
@@ -1238,6 +1256,7 @@ describe('API Router', function() {
                     }).catch(function(error) {
                         error.should.be.ok;
                         error.should.have.property('code', 422);
+                        error.properties.length.should.equal(1);
                         error.properties[0].should.have.property('code', 110);
                         error.properties[0].property.should.equal('param3');
                     })
