@@ -43,6 +43,7 @@
     "jade": "1.11.0",
     "jsen": "0.6.0",
     "lodash": "3.10.1",
+    "monocle-api-props": "0.0.3",
     "path-to-regexp": "1.2.0"
   }
 }
