@@ -111,6 +111,15 @@ mixin resource(pattern, schema, methods, query)
         section.items
             +resource(null, schema.items, null)
 
+mixin alias(pattern, alias)
+    h2
+        = '* ' + pattern
+        span(class="type type-alias") alias
+
+    h3.alias
+        = 'Points to '
+        span.alias= alias
+
 doctype html
 html
     head
@@ -128,7 +137,10 @@ html
 
             ul
                 each route in routes
-                    li: a(href="##{route.pattern}")= route.schema.title || route.pattern
+                    li: a(href="##{route.pattern}")
+                        if route.alias
+                            = '* '
+                        = (route.schema && route.schema.title) || route.pattern
 
         .resources
             each route in routes
@@ -136,10 +148,14 @@ html
                 - schema = route.schema
                 - methods = route.methods
                 - query = route.query
-                .resource(id=route.pattern)
-                    +resource(pattern, schema, methods, query)
+                - alias = route.alias
 
-                    h3.sample Sample Response:
-                    pre.response= JSON.stringify(mockValue(schema), null, 2)
+                .resource(id=route.pattern)
+                    if route.alias
+                        +alias(pattern, alias)
+                    else
+                        +resource(pattern, schema, methods, query)
+                        h3.sample Sample Response:
+                        pre.response= JSON.stringify(mockValue(schema), null, 2)
 
                     div: a(href="#") Back to Top

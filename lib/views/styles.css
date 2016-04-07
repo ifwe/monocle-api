@@ -224,6 +224,14 @@ span.type-integer{
     background: #c81;
 }
 
+span.type-alias{
+    background: #249;
+}
+
+span.alias{
+    font-family: monaco, monospace;
+}
+
 h2 span.type{
     vertical-align: top;
 }
