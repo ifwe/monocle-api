@@ -3915,4 +3915,210 @@ describe('API Router', function() {
             });
         });
     });
+
+    describe('alias', function() {
+        beforeEach(function() {
+            this.router = new Router();
+            this.connection = new Connection(this.router, {}, {});
+            this.fooSchema = {
+                type: 'object',
+                properties: {
+                    name: {
+                        type: 'string'
+                    }
+                }
+            };
+            this.getFoo = sinon.stub()
+            .returns({ name: 'test name' });
+        });
+
+        it('exposes an endpoint under a simple string aliased path', function() {
+            this.router.route('/foo', this.fooSchema, {
+                get: this.getFoo
+            });
+            this.router.alias('/bar', '/foo');
+
+            return this.connection.get('/bar')
+            .then(function(resource) {
+                resource.should.have.property('name', 'test name');
+            });
+        });
+
+        it('exposes a dynamic endpoint under a simple string aliased path', function() {
+            this.router.route('/foo', this.fooSchema, {
+                get: this.getFoo
+            });
+            this.router.alias('/bar', function(request, connection) {
+                request.setResourceId('/foo');
+                return request;
+            });
+
+            return this.connection.get('/bar')
+            .then(function(resource) {
+                resource.should.have.property('name', 'test name');
+            });
+        });
+
+        it('exposes a dynamic endpoint asynchronously under a simple string aliased path', function() {
+            this.router.route('/foo', this.fooSchema, {
+                get: this.getFoo
+            });
+            this.router.alias('/bar', function(request, connection) {
+                return new Promise(function(resolve, reject) {
+                    request.setResourceId('/foo');
+                    resolve(request);
+                });
+            });
+
+            return this.connection.get('/bar')
+            .then(function(resource) {
+                resource.should.have.property('name', 'test name');
+            });
+        });
+
+        it('throws an error if target resource id matches aliased resource id', function() {
+            this.router.route('/foo', this.fooSchema, {
+                get: this.getFoo
+            });
+            this.router.alias('/bar', function(request, connection) {
+                return new Promise(function(resolve, reject) {
+                    request.setResourceId('/bar'); // Same as alias
+                    resolve(request);
+                });
+            });
+
+            return this.connection.get('/bar')
+            .then(function(resource) {
+                throw new Error('Did not expect promise to resolve');
+            })
+            .catch(function(error) {
+                error.should.have.property('code', 508); // 508: LOOP DETECTED
+                error.should.have.property('message', 'Alias pointed back to itself');
+            });
+        });
+
+        [
+            'string',
+            123,
+            1.23,
+            -1,
+            0,
+            true,
+            false,
+            [],
+            {},
+            undefined,
+            null,
+            function() {}
+        ].forEach(function(invalidRequest) {
+            it('throws an error if function returns a non-request instance, ' + JSON.stringify(invalidRequest), function() {
+                this.router.route('/foo', this.fooSchema, {
+                    get: this.getFoo
+                });
+                this.router.alias('/bar', function(request, connection) {
+                    return invalidRequest;
+                });
+
+                return this.connection.get('/bar')
+                .then(function(resource) {
+                    throw new Error('Did not expect promise to resolve');
+                })
+                .catch(function(error) {
+                    error.should.have.property('code', 500);
+                    error.should.have.property('message', 'Alias did not resolve to a Request instance');
+                });
+            });
+
+            it('throws an error if function returns a promise that resolves with a non-request instance, ' + JSON.stringify(invalidRequest), function() {
+                this.router.route('/foo', this.fooSchema, {
+                    get: this.getFoo
+                });
+                this.router.alias('/bar', function(request, connection) {
+                    return Promise.resolve(invalidRequest);
+                });
+
+                return this.connection.get('/bar')
+                .then(function(resource) {
+                    throw new Error('Did not expect promise to resolve');
+                })
+                .catch(function(error) {
+                    error.should.have.property('code', 500);
+                    error.should.have.property('message', 'Alias did not resolve to a Request instance');
+                });
+            });
+        });
+
+        it('supports patterns', function() {
+            this.router.route('/users/:userId', {
+                type: 'object',
+                properties: {
+                    userId: {
+                        type: 'integer'
+                    }
+                }
+            }, {
+                get: function(request, connection) {
+                    return {
+                        userId: request.getParam('userId')
+                    };
+                }
+            });
+
+            this.router.alias('/users/u/:username', function(request, connection) {
+                request.setResourceId('/users/123');
+                return request;
+            });
+
+            return this.connection.get('/users/u/john')
+            .then(function(user) {
+                user.should.have.property('userId', 123);
+            });
+        });
+
+        it('does not leak alias param to aliased callback handler', function() {
+            var getSpy = sinon.spy(function(request, connection) {
+                expect(request.getParam('username')).to.be.undefined;
+                return {
+                    userId: request.getParam('userId')
+                };
+            });
+
+            this.router.route('/users/:userId', {
+                type: 'object',
+                properties: {
+                    userId: {
+                        type: 'integer'
+                    }
+                }
+            }, {
+                get: getSpy
+            });
+
+            this.router.alias('/users/u/:username', function(request, connection) {
+                request.setResourceId('/users/123');
+                return request;
+            });
+
+            return this.connection.get('/users/u/john')
+            .then(function(result) {
+                getSpy.called.should.be.true;
+            })
+        });
+
+
+        // Skipping for now, solving this isn't particularly easy due to batching and persistent connections.
+        it.skip('throws an error if circular aliases are detected', function() {
+            this.router.alias('/foo', '/bar');
+            this.router.alias('/bar', '/foo');
+
+            return this.connection.get('/foo')
+            .then(function(resource) {
+                throw new Error('Did not expect promise to resolve');
+            })
+            .catch(function(error) {
+                error.should.have.property('code', 508); // 508: LOOP DETECTED
+                error.should.have.property('message', 'Circular aliases cannot be resolved');
+            });
+        });
+    });
 });

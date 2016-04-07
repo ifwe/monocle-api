@@ -312,6 +312,22 @@ app.use(function(req, res, next) {
     res.end();
 });
 
+/*** Set up some aliases ***/
+api.alias('/alice', '/users/1');
+
+/*** Set up some aliases ***/
+api.alias('/random', function(request, connection) {
+    var userId = Math.ceil(Math.random() * mockUserBasicInfo.length);
+    request.setResourceId('/users/' + userId);
+    return request;
+});
+
+/*** Set up some aliases ***/
+api.alias('/me', function(request, connection) {
+    request.setResourceId('/users/2');
+    return request;
+});
+
 // Allow uploaded files to be served
 var serveStatic = require('serve-static');
 app.use(serveStatic(path.join(__dirname, 'files')));
