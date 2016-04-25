@@ -133,6 +133,7 @@ describe('util: merge', function() {
                 };
 
                 var usersB = {
+                    userId: 1,
                     items: [
                         {
                             email: 'alice@example.com',
@@ -147,17 +148,55 @@ describe('util: merge', function() {
                             photo: {
                                 url: '/jane.jpg'
                             }
+                        },
+                        {
+                            email: 'test@test.com'
                         }
-                    ]
+                    ],
+                    luv : {
+                        points: 1
+                    }
                 };
 
-                var result = merge(usersA, usersB);
+                var usersC = {
+                    page: 3,
+                    items: [
+                        {
+                            music: 'rap',
+                            photo: {
+                                image: 'alice'
+                            }
+                        },
+                        {
+                            book: 'vampire',
+                            photo: {
+                                image: 'jane'
+                            }
+                        },
+                        {
+                            photo: {
+                                image: 'test'
+                            }
+                        }
+                    ],
+                    luv: {
+                        balance: 3
+                    }
+                };
+
+                var result = merge(usersA, usersB, usersC);
+
+
                 result.should.have.property('total', 20);
-                result.items.should.have.lengthOf(2);
+                result.should.have.property('page', 3);
+                result.should.have.property('userId', 1);
+                result.items.should.have.lengthOf(3);
 
                 // Validate first user merged properly
+                result.luv.should.deep.equal({balance: 3, points: 1})
                 result.items[0].should.have.property('displayName', 'Alice');
                 result.items[0].should.have.property('age', 30);
+                result.items[0].should.have.property('music', 'rap');
                 result.items[0].should.have.property('lastOnline');
                 result.items[0].lastOnline.getTime().should.equal(new Date(1000).getTime());
                 result.items[0].should.have.property('favoriteColors');
@@ -167,11 +206,13 @@ describe('util: merge', function() {
                 result.items[0].should.have.property('emailValidated', true);
                 result.items[0].should.have.property('email', 'alice@example.com');
                 result.items[0].should.have.property('photo');
-                result.items[0].photo.should.deep.equal({ url: '/alice.jpg' });
+                result.items[0].photo.should.deep.equal({ url: '/alice.jpg', image: 'alice' });
+
 
                 // Validate second user merged properly
                 result.items[1].should.have.property('displayName', 'Jane');
                 result.items[1].should.have.property('age', 23);
+                result.items[1].should.have.property('book', 'vampire');
                 result.items[1].should.have.property('lastOnline');
                 result.items[1].lastOnline.getTime().should.equal(new Date(2000).getTime());
                 result.items[1].should.have.property('favoriteColors');
@@ -180,7 +221,11 @@ describe('util: merge', function() {
                 result.items[1].should.have.property('emailValidated', false);
                 result.items[1].should.have.property('email', 'jane@example.com');
                 result.items[1].should.have.property('photo');
-                result.items[1].photo.should.deep.equal({ url: '/jane.jpg' });
+                result.items[1].photo.should.deep.equal({ url: '/jane.jpg', image: 'jane' });
+
+
+                result.items[2].email.should.equal('test@test.com')
+                result.items[2].photo.should.deep.equal({image: 'test'})
             });
         });
     });
@@ -211,7 +256,7 @@ describe('util: merge', function() {
             [ { foo: 'foo' }, null ],
             [ 1, NaN, 2, undefined, 0.4, true, 'foo', Infinity ]
         ].forEach(function(args) {
-            var expectedResult = args[args.length - 1];
+            var expectedResult = args[0];
             it('returns ' + JSON.stringify(expectedResult) + ' from arguments ' + JSON.stringify(args), function() {
                 expect(merge.apply(this, args)).to.equal(expectedResult);
             });
