@@ -256,7 +256,7 @@ describe('util: merge', function() {
             [ { foo: 'foo' }, null ],
             [ 1, NaN, 2, undefined, 0.4, true, 'foo', Infinity ]
         ].forEach(function(args) {
-            var expectedResult = args[0];
+            var expectedResult = args[args.length - 1];
             it('returns ' + JSON.stringify(expectedResult) + ' from arguments ' + JSON.stringify(args), function() {
                 expect(merge.apply(this, args)).to.equal(expectedResult);
             });
