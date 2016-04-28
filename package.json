@@ -37,7 +37,7 @@
     "sinon": "1.17.1"
   },
   "dependencies": {
-    "bluebird": "2.9.34",
+    "bluebird": "3.3.5",
     "busboy": "0.2.12",
     "debug": "2.2.0",
     "jade": "1.11.0",
