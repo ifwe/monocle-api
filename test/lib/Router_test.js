@@ -2899,83 +2899,74 @@ describe('API Router', function() {
         });
     });
 
-    describe('method OPTIONS /', function() {
+    describe('documentation', function() {
         beforeEach(function() {
-            var noop = function() {};
             this.router = new Router();
-
+            this.connection = new Connection(this.router, {}, {});
             this.fooSchema = {
                 type: 'object',
                 properties: {
-                    foo: { type: 'string' }
+                    fooId: { type: 'integer' }
                 }
             };
-
-            this.barSchema = {
-                type: 'object',
-                properties: {
-                    bar: { type: 'integer' }
-                }
-            };
-
-            this.bazSchema = {
-                type: 'object',
-                properties: {
-                    baz: { type: 'string' },
-                    bat: { type: 'integer' }
-                }
-            }
-
-            this.router
-            .route('/foo', this.fooSchema, { get: noop })
-            .route('/bar', this.barSchema, { post: noop, get: noop, patch: noop, delete: noop, put: noop })
-            .route('/baz', this.bazSchema, { get: [
-                { props: ['baz'], callback: noop },
-                { props: ['bat'], callback: noop }
-            ]});
-            this.connection = new Connection(this.router, {}, {});
+            this.router.route('/foo/:fooId', this.fooSchema, {
+                get: function() {},
+                post: function() {},
+                patch: function() {}
+            });
+            this.router.alias('/bar', '/foo/123');
+            this.router.alias('/me', function(request, connection) {
+                request.setResourceId('/foo/456');
+                return request;
+            });
+            this.router.route('/all-methods', this.fooSchema, {
+                get: function() {},
+                post: function() {},
+                patch: function() {},
+                put: function() {},
+                delete: function() {}
+            });
         });
 
         it('returns details about all routes', function() {
             return this.connection.options('/')
             .then(function(result) {
                 result.should.be.an('array');
-                result.should.have.lengthOf(3); // three routes were defined
+                result.should.have.lengthOf(4); // four routes were defined
 
                 result.forEach(function(data) {
                     switch (data.pattern) {
-                        case '/foo':
+                        case '/foo/:fooId':
                             data.should.have.property('schema', this.fooSchema);
                             data.should.have.property('methods');
                             data.methods.should.contain('GET');
                             data.methods.should.contain('OPTIONS');
-                            data.methods.should.not.contain('POST');
+                            data.methods.should.contain('POST');
+                            data.methods.should.contain('PATCH');
                             data.methods.should.not.contain('PUT');
-                            data.methods.should.not.contain('PATCH');
                             data.methods.should.not.contain('DELETE');
                             break;
 
                         case '/bar':
-                            data.should.have.property('schema', this.barSchema);
+                            data.should.not.have.property('schema', this.barSchema);
+                            data.should.not.have.property('methods');
+                            break;
+
+                        case '/me':
+                            data.should.have.property('pattern', '/me');
+                            data.should.not.have.property('schema');
+                            data.should.not.have.property('methods');
+                            break;
+
+                        case '/all-methods':
+                            data.should.have.property('schema', this.fooSchema);
                             data.should.have.property('methods');
                             data.methods.should.contain('GET');
                             data.methods.should.contain('OPTIONS');
                             data.methods.should.contain('POST');
-                            data.methods.should.contain('PUT');
                             data.methods.should.contain('PATCH');
+                            data.methods.should.contain('PUT');
                             data.methods.should.contain('DELETE');
-                            break;
-
-                        case '/baz':
-                            data.should.have.property('pattern', '/baz');
-                            data.should.have.property('schema', this.bazSchema);
-                            data.should.have.property('methods');
-                            data.methods.should.contain('GET');
-                            data.methods.should.contain('OPTIONS');
-                            data.methods.should.not.contain('POST');
-                            data.methods.should.not.contain('PUT');
-                            data.methods.should.not.contain('PATCH');
-                            data.methods.should.not.contain('DELETE');
                             break;
 
                         default:
@@ -2989,10 +2980,10 @@ describe('API Router', function() {
             return this.connection.options('/')
             .then(function(result) {
                 result.should.be.an('array');
-                result.should.have.lengthOf(3); // three routes were defined
+                result.should.have.lengthOf(4); // four routes were defined
 
                 var bar = result.filter(function(data) {
-                    return data.pattern == '/bar';
+                    return data.pattern == '/all-methods';
                 })[0];
                 bar.methods[0].should.equal('GET');
                 bar.methods[1].should.equal('POST');
@@ -3000,6 +2991,54 @@ describe('API Router', function() {
                 bar.methods[3].should.equal('PATCH');
                 bar.methods[4].should.equal('DELETE');
                 bar.methods[5].should.equal('OPTIONS');
+            });
+        });
+
+        describe('valid resource', function() {
+            it('contains documentation for the matching route', function() {
+                return this.connection.options('/foo/123')
+                .then(function(result) {
+                    result.should.have.property('pattern', '/foo/:fooId');
+                    result.should.have.property('schema');
+                    result.schema.should.deep.equal(this.fooSchema);
+                    result.should.have.property('query');
+                }.bind(this));
+            });
+        });
+
+        describe('valid string-based alias', function() {
+            it('contains documentation for the resolved route', function() {
+                return this.connection.options('/bar')
+                .then(function(result) {
+                    result.should.have.property('pattern', '/foo/:fooId');
+                    result.should.have.property('schema');
+                    result.schema.should.deep.equal(this.fooSchema);
+                    result.should.have.property('query');
+                }.bind(this));
+            });
+        });
+
+        describe('valid function-based alias', function() {
+            it('contains documentation for the resolved route', function() {
+                return this.connection.options('/me')
+                .then(function(result) {
+                    result.should.have.property('pattern', '/foo/:fooId');
+                    result.should.have.property('schema');
+                    result.schema.should.deep.equal(this.fooSchema);
+                    result.should.have.property('query');
+                }.bind(this));
+            });
+        });
+
+        describe('invalid resource', function() {
+            it('rejects with a 404', function() {
+                return this.connection.options('/invalid')
+                .then(function(result) {
+                    throw new Error('Did not expect to resolve');
+                })
+                .catch(function(error) {
+                    error.should.have.property('code', 404);
+                });
             });
         });
     });
