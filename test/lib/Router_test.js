@@ -94,6 +94,131 @@ describe('API Router', function() {
                 });
             });
 
+            describe('getting properties from a null object', function() {
+                beforeEach(function() {
+                    this.url = '/foo';
+
+                    this.meeSchema = {
+                        type: 'object',
+                        properties: {
+                            foo: {
+                                type: ['object', 'null'],
+                                properties: {
+                                    bar: {type: 'string'}
+                                }
+                            },
+
+                            foo2: {
+                                type: 'object',
+                                properties: {
+                                    bar: {type: 'string'}
+                                }
+                            },
+                            foo3: {
+                                type: ['object', 'null'],
+                                properties: {
+                                    bar: {type: 'string'}
+                                }
+                            }
+
+                        }
+                    };
+
+                    this.router.route(this.url, this.meeSchema, {
+                        get: function(request, response) {
+                            return {
+                                foo : null,
+                                foo2 : { bar: 'Hello' },
+                                foo3 : { bar: 'Hello'}
+                            };
+                        }
+                    });
+                });
+
+                it('return a null object when request object with prop', function() {
+                    return this.connection.get(this.url, {
+                        props: ['foo.bar']
+                    })
+                    .then(function(response) {
+                        response.should.have.property('foo', null);
+                    }.bind(this));
+                });
+
+                it('return a null object when request object without props', function() {
+                    return this.connection.get(this.url, {
+                      props: ['foo']
+                    })
+                    .then(function(response) {
+                        response.should.have.property('foo', null);
+                    }.bind(this));
+                });
+
+                it('return missing property error if property does not exist', function() {
+                    return this.connection.get(this.url, {
+                        props: ['test']
+                    })
+                    .then(function(response) {
+                        response.should.be.deep.equal(
+                            { '$internalError': 'missing', unfound: [ 'test' ] }
+                        );
+                    }.bind(this));
+                });
+
+                it('return missing property error if the nested object property does not exist', function() {
+                    return this.connection.get(this.url, {
+                        props: ['foo2.yay']
+                    })
+                    .then(function(response) {
+                        response.should.be.deep.equal({
+                            "foo2": {
+                                "$error": "One or more properties missing from data",
+                                "$missing": ["yay"]
+                            }
+                        });
+                    }.bind(this));
+                });
+
+                it('return correct resource if the nested object property exists', function() {
+                    return this.connection.get(this.url, {
+                        props: ['foo2.bar']
+                    })
+                    .then(function(response) {
+                        response.foo2.should.have.property('bar', 'Hello');
+                    }.bind(this));
+                });
+
+                it('return correct resource if the object is not null and schema allows for null', function() {
+                    return this.connection.get(this.url, {
+                        props: ['foo3.bar']
+                    })
+                    .then(function(response) {
+                        response.foo3.should.have.property('bar', 'Hello');
+                    }.bind(this));
+                });
+
+                it('return invalid schema if object is null', function() {
+                    this.router.route('/foo2', this.meeSchema, {
+                        get: function(request, response) {
+                            return {
+                                foo : null,
+                                foo2 : null,
+                                foo3 : { bar: 'Hello'}
+                            };
+                        }
+                    });
+
+                    return this.connection.get('/foo2', {
+                        props: ['foo2.bar']
+                    })
+                    .then(function (response) {
+                        return Promise.reject("Expecting an error");
+                    })
+                    .catch(function(error) {
+                        error.message.should.be.equal('Return value did not validate with schema');
+                    }.bind(this));
+                });
+            });
+
             describe('optional parameter in route', function() {
                 beforeEach(function() {
                     this.url = '/foo/:fooId/test/:param1?';
