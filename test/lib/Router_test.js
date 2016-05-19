@@ -158,10 +158,18 @@ describe('API Router', function() {
                         props: ['test']
                     })
                     .then(function(response) {
-                        response.should.be.deep.equal(
-                            { '$internalError': 'missing', unfound: [ 'test' ] }
-                        );
-                    }.bind(this));
+                        return Promise.reject('unhandled success');
+                    })
+                    .catch(function(response) {
+                        response.should.deep.equal({
+                            code: 2004,
+                            error: 'PROPS NOT FOUND',
+                            message: 'Following props do not exist in schema: test',
+                            properties: [],
+                            '$httpStatus': 404,
+                            '$httpMessage': 'NOT FOUND'
+                        })
+                    })
                 });
 
                 it('return missing property error if the nested object property does not exist', function() {
@@ -169,12 +177,14 @@ describe('API Router', function() {
                         props: ['foo2.yay']
                     })
                     .then(function(response) {
-                        response.should.be.deep.equal({
-                            "foo2": {
-                                "$error": "One or more properties missing from data",
-                                "$missing": ["yay"]
-                            }
-                        });
+                        response.should.deep.equal({
+                            code: 2004,
+                            error: 'PROPS NOT FOUND',
+                            message: 'Following props do not exist in schema: foo2.yay',
+                            properties: [],
+                            '$httpStatus': 404,
+                            '$httpMessage': 'NOT FOUND'
+                        })
                     }.bind(this));
                 });
 
@@ -371,7 +381,12 @@ describe('API Router', function() {
                     }.bind(this))
                     .catch(function(error) {
                         error.should.be.ok;
-                        error.should.have.property('code', 422);
+                        console.log(error);
+                        error.should.have.property('code', 2001);
+                        error.should.have.property('$httpStatus', 422);
+                        error.should.have.property('$httpMessage', 'UNPROCESSABLE ENTITY');
+
+
                         error.properties[0].should.have.property('code', 110);
                         error.properties[0].property.should.equal('objectParam1.enuminteg');
                     });
@@ -4156,8 +4171,14 @@ describe('API Router', function() {
                 throw new Error('Did not expect promise to resolve');
             })
             .catch(function(error) {
-                error.should.have.property('code', 508); // 508: LOOP DETECTED
-                error.should.have.property('message', 'Alias pointed back to itself');
+                error.should.deep.equal({
+                    code: 2007,
+                    error: 'ALIAS POINTING TO ITSELF',
+                    message: 'Alias pointed back to itself',
+                    properties: [],
+                    '$httpStatus': 508,
+                    '$httpMessage': 'LOOP DETECTED'
+                })
             });
         });
 
@@ -4188,8 +4209,14 @@ describe('API Router', function() {
                     throw new Error('Did not expect promise to resolve');
                 })
                 .catch(function(error) {
-                    error.should.have.property('code', 500);
-                    error.should.have.property('message', 'Alias did not resolve to a Request instance');
+                   error.should.deep.equal({
+                        code: 2006,
+                        error: 'ALIAS DID NOT RESOLVE',
+                        message: 'Alias did not resolve to a Request instance',
+                        properties: [],
+                        '$httpStatus': 500,
+                        '$httpMessage': 'INTERNAL SERVER ERROR'
+                    });
                 });
             });
 
@@ -4206,8 +4233,14 @@ describe('API Router', function() {
                     throw new Error('Did not expect promise to resolve');
                 })
                 .catch(function(error) {
-                    error.should.have.property('code', 500);
-                    error.should.have.property('message', 'Alias did not resolve to a Request instance');
+                    error.should.deep.equal({
+                        code: 2006,
+                        error: 'ALIAS DID NOT RESOLVE',
+                        message: 'Alias did not resolve to a Request instance',
+                        properties: [],
+                        '$httpStatus': 500,
+                        '$httpMessage': 'INTERNAL SERVER ERROR'
+                    });
                 });
             });
         });
