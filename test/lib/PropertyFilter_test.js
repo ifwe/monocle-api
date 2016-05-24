@@ -36,10 +36,6 @@ describe('PropertyFilter', function() {
                 this.filtered.should.not.have.property('dur');
             });
 
-            it('returns error object if requested property does not exist', function() {
-                this.filter.props(['unknown']).should.have.property('$error');
-            });
-
             it('returns data unchanged if no properties are specified', function() {
                 this.filter.props().should.deep.equal(this.data); // no argument
                 this.filter.props([]).should.deep.equal(this.data); // empty array
@@ -535,6 +531,11 @@ describe('PropertyFilter', function() {
                     this.filtered.should.be.an('array');
                 });
 
+                it('returns missing error if requesting a non existent property', function() {
+                     this.filtered = this.filter.props(['@items@foo2', '@items@foo.test', '@item2', 'foo', '@items']);
+                     this.filtered.missing.should.deep.equal(['@items@foo2', '@items@foo.test' , '@item2', 'foo']);
+                })
+
                 it('keeps specified properties on all items', function() {
                     this.filtered[0].items[0].should.have.property('foo', 'test foo 1');
                     this.filtered[0].items[0].should.have.property('bar', 'test bar 1');
@@ -589,7 +590,7 @@ describe('PropertyFilter', function() {
         });
     });
 
-    describe('complex structure', function() {
+    describe('complex structure 1', function() {
         beforeEach(function() {
             function createObject(id) {
                 return {
@@ -747,6 +748,194 @@ describe('PropertyFilter', function() {
                             ]
                         }
                     ]);
+                });
+            });
+        });
+    });
+
+    describe('complex structure 2', function() {
+        beforeEach(function() {
+            this.data = {
+                foo: 'test foo',
+                bar: 'test bar',
+                dur: 'test dur',
+                objecto : {
+                    hello: 'hey',
+                    helloObject: {
+                        hello : 3
+                    },
+                    items: [
+                        {
+                            user: {
+                                $id: 'test',
+                                userId: 123,
+                                displayName: 'hey'
+                            },
+                            symlink: {
+                                $link: 'test'
+                            }
+
+                        },
+                        {
+                            user: {
+                                $id: 'yo',
+                                userId: 345,
+                                displayName: 'random'
+                            },
+                            symlink: {
+                                $link: 'test'
+                            }
+
+                        }
+
+
+                    ]
+                },
+                items: [
+                    {
+                        user: {
+                            $id: 'test',
+                            userId: 123,
+                            displayName: 'hey'
+                        },
+                        symlink: {
+                            $link: 'test'
+                        }
+
+                    }
+                ]
+            };
+            this.filter = new PropertyFilter(this.data);
+        });
+
+        describe('.props() returns correct props', function() {
+
+            it('if props is an object', function() {
+                var expected = {
+                    objecto: this.data['objecto']
+                }
+                 this.filter = new PropertyFilter(this.data);
+
+
+                this.filter.props(['objecto']).should.deep.equal(expected);
+            });
+
+            it('if props is an object inside an object', function() {
+                var expected = {
+                    objecto: {
+                        hello: this.data['objecto']['hello']
+                    },
+                    foo: this.data['foo']
+                }
+                this.filter = new PropertyFilter(this.data);
+
+                this.filter.props(['objecto.hello', 'foo']).should.deep.equal(expected);
+            });
+
+
+            it('if props is a property inside an array', function() {
+                var expected = {
+                    objecto: {
+                        helloObject: {
+                            hello: this.data['objecto']['helloObject']['hello']
+                        }
+                    },
+                    items: this.data['items'],
+                    foo: this.data['foo']
+                }
+                this.filter = new PropertyFilter(this.data);
+                var test = this.filter.props(['items@user.userId',  'items@user.displayName', 'foo', 'objecto.helloObject.hello', 'items@symlink']);
+
+                test.should.deep.equal(expected);
+            });
+
+            it('if props is a property inside an array inside an object', function() {
+                var expected = {
+                    objecto: {
+                        helloObject: {
+                            hello: this.data['objecto']['helloObject']['hello']
+                        },
+
+                        items: [
+                            {
+                                user: this.data.objecto.items[0].user
+                            },
+                            {
+                                user: this.data.objecto.items[1].user
+                            },
+                        ]
+
+                    },
+                    foo: this.data['foo']
+                }
+                this.filter = new PropertyFilter(this.data);
+                var test = this.filter.props(['objecto.items@user.userId',  'objecto.items@user.displayName', 'foo', 'objecto.helloObject.hello']);
+
+                test.should.deep.equal(expected);
+            });
+
+            it('when requesting props from multiple arrrays', function() {
+                var expected = {
+                    objecto: {
+                        items: [
+                            {
+                                user: this.data.objecto.items[0].user
+                            },
+                            {
+                                user: this.data.objecto.items[1].user
+                            },
+                        ]
+
+                    },
+                    items: this.data.items,
+                    foo: this.data['foo']
+                }
+                this.filter = new PropertyFilter(this.data);
+                var test = this.filter.props(['objecto.items@user.userId',  'objecto.items@user.displayName', 'foo', 'items@user', 'items@symlink']);
+
+                test.should.deep.equal(expected);
+            });
+
+            it('when requesting props with the parent of the array', function() {
+                var expected = {
+                    objecto: {
+                        items: this.data.objecto.items
+
+                    },
+                    items: this.data.items,
+                }
+                this.filter = new PropertyFilter(this.data);
+                var test = this.filter.props(['objecto.items',  'items', 'items']);
+
+                test.should.deep.equal(expected);
+            });
+
+            it('when requesting props with the object key', function() {
+                var expected = {
+                    objecto: this.data.objecto,
+                    foo: this.data.foo
+                }
+                this.filter = new PropertyFilter(this.data);
+                var test = this.filter.props(['objecto',  'foo']);
+
+                test.should.deep.equal(expected);
+            });
+
+            [
+                //Props requested, Props missing
+                [['@foo'], ['@foo']],
+                [['foo', 'unknown'], ['unknown']],
+                [['foo', 'test', 'unknown'],    ['test', 'unknown']],
+                [['items@not-exist'], ['items@not-exist']],
+                [['items@user.not-exist'], ['items@user.not-exist']],
+                [['items2@user.not-exist'], ['items2@user.not-exist']],
+                [['random.random@randum.not-exist'], ['random.random@randum.not-exist']],
+                [['objecto.hello1'], ['objecto.hello1']],
+                [['objecto.helloObject.hello2'], ['objecto.helloObject.hello2']],
+                [['objecto.items2', 'objecto.items2@test', 'object.items2@test.user333', 'foo'], ['objecto.items2', 'objecto.items2@test', 'object.items2@test.user333']]
+            ].forEach(function(data) {
+                it('returns error object if requested property does not exist', function() {
+                    this.filter.props(data[0]).missing.should.deep.equal(data[1]);
                 });
             });
         });
