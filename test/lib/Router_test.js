@@ -94,6 +94,131 @@ describe('API Router', function() {
                 });
             });
 
+            describe('getting non existing properties', function() {
+                beforeEach(function() {
+                    this.url = '/prop';
+
+                    this.propSchema = {
+                        type: 'object',
+                        properties: {
+                            foo: {
+                                type: 'object',
+                                properties: {
+                                    bar: {type: 'string'}
+                                }
+                            },
+
+                            items: {
+                                type: 'array',
+                                items: {
+                                    type: 'object',
+                                    properties: {
+                                       user: {
+                                            type: 'object',
+                                            description: 'The user\'s friend.',
+                                            properties: {
+                                                userId: {
+                                                    type: 'integer'
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    };
+                    this.router.route(this.url, this.propSchema, {
+                        get: function(request, response) {
+                            return {
+                                items: [
+                                    {
+                                        user: {
+                                            userId: 123,
+                                            displayName: 'hey'
+                                        }
+
+                                    }
+                                ]
+                            };
+                        }
+                    });
+
+                });
+                it('returns missing error if top level property does not exist', function() {
+                    return this.connection.get(this.url, {
+                        props: ['test']
+                    })
+                    .then(function(response) {
+                        return Promise.reject('unhandled success');
+                    })
+                    .catch(function(response) {
+                        response.should.deep.equal({
+                            code: 2004,
+                            error: 'PROPS NOT FOUND',
+                            message: 'Some of the properties requested do not exist in schema.',
+                            properties: [{
+                                property: 'test',
+                                code: 200,
+                                error: 'MONOCLE_PARAMETER_NOT_IN_SCHEMA',
+                                message: 'Provided parameter does not exist in the schema'
+                            }],
+                            '$httpStatus': 404,
+                            '$httpMessage': 'NOT FOUND'
+                        })
+                    })
+                });
+
+                it('returns missing error if nested level property does not exist', function() {
+                    return this.connection.get(this.url, {
+                        props: ['items@user.userId2', 'items@user.userId3', 'notexit']
+                    })
+                    .then(function(response) {
+                        return Promise.reject('unhandled success');
+                    })
+                    .catch(function(response) {
+                        response.should.deep.equal({
+                            code: 2004,
+                            error: 'PROPS NOT FOUND',
+                            message: 'Some of the properties requested do not exist in schema.',
+                            properties: [
+                                {
+                                    property: 'items@user.userId2',
+                                    code: 200,
+                                    error: 'MONOCLE_PARAMETER_NOT_IN_SCHEMA',
+                                    message: 'Provided parameter does not exist in the schema'
+                                },
+                                {
+                                    property: 'items@user.userId3',
+                                    code: 200,
+                                    error: 'MONOCLE_PARAMETER_NOT_IN_SCHEMA',
+                                    message: 'Provided parameter does not exist in the schema'
+                                },
+                                {
+                                    property: 'notexit',
+                                    code: 200,
+                                    error: 'MONOCLE_PARAMETER_NOT_IN_SCHEMA',
+                                    message: 'Provided parameter does not exist in the schema'
+                                },
+
+                            ],
+                            '$httpStatus': 404,
+                            '$httpMessage': 'NOT FOUND'
+                        })
+                    })
+                });
+
+                it('does not return missing error if property exists', function() {
+                    return this.connection.get(this.url, {
+                        props: ['items@user.userId', 'items@user.displayName']
+                    })
+                    .then(function(response) {
+                        response.items[0].should.deep.equal({user: {userId: 123, displayName: 'hey'}});
+                    })
+
+                });
+
+            })
+
             describe('getting properties from a null object', function() {
                 beforeEach(function() {
                     this.url = '/foo';
@@ -158,10 +283,25 @@ describe('API Router', function() {
                         props: ['test']
                     })
                     .then(function(response) {
-                        response.should.be.deep.equal(
-                            { '$internalError': 'missing', unfound: [ 'test' ] }
-                        );
-                    }.bind(this));
+                        return Promise.reject('unhandled success');
+                    })
+                    .catch(function(response) {
+                        response.should.deep.equal({
+                            code: 2004,
+                            error: 'PROPS NOT FOUND',
+                            message: 'Some of the properties requested do not exist in schema.',
+                            properties: [
+                                {
+                                    property: 'test',
+                                    code: 200,
+                                    error: 'MONOCLE_PARAMETER_NOT_IN_SCHEMA',
+                                    message: 'Provided parameter does not exist in the schema'
+                                },
+                            ],
+                            '$httpStatus': 404,
+                            '$httpMessage': 'NOT FOUND'
+                        })
+                    })
                 });
 
                 it('return missing property error if the nested object property does not exist', function() {
@@ -169,12 +309,24 @@ describe('API Router', function() {
                         props: ['foo2.yay']
                     })
                     .then(function(response) {
-                        response.should.be.deep.equal({
-                            "foo2": {
-                                "$error": "One or more properties missing from data",
-                                "$missing": ["yay"]
-                            }
-                        });
+                        return Promise.reject('unhandled success');
+                    })
+                    .catch(function(response) {
+                        response.should.deep.equal({
+                            code: 2004,
+                            error: 'PROPS NOT FOUND',
+                            message: 'Some of the properties requested do not exist in schema.',
+                            properties: [
+                                {
+                                    property: 'foo2.yay',
+                                    code: 200,
+                                    error: 'MONOCLE_PARAMETER_NOT_IN_SCHEMA',
+                                    message: 'Provided parameter does not exist in the schema'
+                                },
+                            ],
+                            '$httpStatus': 404,
+                            '$httpMessage': 'NOT FOUND'
+                        })
                     }.bind(this));
                 });
 
@@ -371,7 +523,10 @@ describe('API Router', function() {
                     }.bind(this))
                     .catch(function(error) {
                         error.should.be.ok;
-                        error.should.have.property('code', 422);
+                        error.should.have.property('code', 2001);
+                        error.should.have.property('$httpStatus', 422);
+                        error.should.have.property('$httpMessage', 'UNPROCESSABLE ENTITY');
+
                         error.properties[0].should.have.property('code', 110);
                         error.properties[0].property.should.equal('objectParam1.enuminteg');
                     });
@@ -390,7 +545,7 @@ describe('API Router', function() {
                     }.bind(this))
                     .catch(function(error) {
                         error.should.be.ok;
-                        error.should.have.property('code', 422);
+                        error.should.have.property('$httpStatus', 422);
                         error.properties[0].should.have.property('code', 105);
                         error.properties[0].property.should.equal('objectParam1');
                     });
@@ -409,7 +564,7 @@ describe('API Router', function() {
                     }.bind(this))
                     .catch(function(error) {
                         error.should.be.ok;
-                        error.should.have.property('code', 422);
+                        error.should.have.property('$httpStatus', 422);
                         error.properties[0].should.have.property('code', 105);
                         error.properties[0].property.should.equal('objectParam1');
                     });
@@ -479,9 +634,20 @@ describe('API Router', function() {
                             return Promise.reject("Not expecting an error");
                         }.bind(this))
                         .catch(function(error) {
-                            error.should.be.ok;
-                            error.should.have.property('code', 422);
-                            error.properties[0].should.have.property('code', 105);
+                            error.should.deep.equal({
+                                code: 2001,
+                                error: 'INVALID PROPERTIES',
+                                message: 'Propertie(s) do not validate with schema',
+                                properties:
+                                [{
+                                    property: 'floatParam',
+                                    code: 105,
+                                    error: 'MONOCLE_INCORRECT_TYPE',
+                                    message: 'Property is of incorrect type'
+                                }],
+                                '$httpStatus': 422,
+                                '$httpMessage': 'UNPROCESSABLE ENTITY'
+                            });
                         });
                     });
                 });
@@ -559,9 +725,19 @@ describe('API Router', function() {
                         return Promise.reject("Not expecting an error");
                     }.bind(this))
                     .catch(function(error) {
-                        error.should.be.ok;
-                        error.should.have.property('code', 422);
-                        error.properties[0].should.have.property('code', 110);
+                        error.should.deep.equal({
+                            code: 2001,
+                            error: 'INVALID PROPERTIES',
+                            message: 'Propertie(s) do not validate with schema',
+                            properties: [{
+                                property: 'arrayParam2',
+                                code: 110,
+                                error: 'MONOCLE_INCORRECT_ENUM',
+                                message: 'Property contains invalid enum value'
+                            }],
+                            '$httpStatus': 422,
+                            '$httpMessage': 'UNPROCESSABLE ENTITY'
+                        })
                     });
                 });
 
@@ -579,9 +755,20 @@ describe('API Router', function() {
                         return Promise.reject("Not expecting an error");
                     }.bind(this))
                     .catch(function(error) {
-                        error.should.be.ok;
-                        error.should.have.property('code', 422);
-                        error.properties[0].should.have.property('code', 105);
+                        error.should.deep.equal({
+                            code: 2001,
+                            error: 'INVALID PROPERTIES',
+                            message: 'Propertie(s) do not validate with schema',
+                            properties:
+                            [{
+                                property: 'arrayParam2',
+                                code: 105,
+                                error: 'MONOCLE_INCORRECT_TYPE',
+                                message: 'Property is of incorrect type'
+                            }],
+                            '$httpStatus': 422,
+                            '$httpMessage': 'UNPROCESSABLE ENTITY' }
+                        );
                     });
                 });
             });
@@ -717,7 +904,7 @@ describe('API Router', function() {
                     }.bind(this))
                     .catch(function(error) {
                         error.should.be.ok;
-                        error.should.have.property('code', 422);
+                        error.should.have.property('$httpStatus', 422);
                         error.properties[0].should.have.property('code', 105);
                     });
                 });
@@ -798,7 +985,7 @@ describe('API Router', function() {
                 }.bind(this))
                 .catch(function(error) {
                     error.should.be.ok;
-                    error.should.have.property('code', 422);
+                    error.should.have.property('$httpStatus', 422);
                     error.properties[0].should.have.property('code', 105);
                 });
             });
@@ -815,9 +1002,8 @@ describe('API Router', function() {
                     return Promise.reject("Not expecting an error");
                 }.bind(this))
                 .catch(function(error) {
-                    console.log(error);
                     error.should.be.ok;
-                    error.should.have.property('code', 422);
+                    error.should.have.property('$httpStatus', 422);
                     error.properties[0].should.have.property('code', 105);
                 });
             });
@@ -835,7 +1021,7 @@ describe('API Router', function() {
                 }.bind(this))
                 .catch(function(error) {
                     error.should.be.ok;
-                    error.should.have.property('code', 422);
+                    error.should.have.property('$httpStatus', 422);
                     error.properties[0].should.have.property('code', 105);
                     error.properties[0].should.have.property('property', 'param1');
                     error.properties[1].should.have.property('property', 'param5');
@@ -856,7 +1042,7 @@ describe('API Router', function() {
                 }.bind(this))
                 .catch(function(error) {
                     error.should.be.ok;
-                    error.should.have.property('code', 422);
+                    error.should.have.property('$httpStatus', 422);
                     error.properties[0].should.have.property('code', 105);
                 });
 
@@ -875,7 +1061,7 @@ describe('API Router', function() {
                     }.bind(this))
                     .catch(function(error) {
                         error.should.be.ok;
-                        error.should.have.property('code', 422);
+                        error.should.have.property('$httpStatus', 422);
                         error.properties[0].should.have.property('code', 110);
                     });
             });
@@ -893,7 +1079,7 @@ describe('API Router', function() {
                     }.bind(this))
                     .catch(function(error) {
                         error.should.be.ok;
-                        error.should.have.property('code', 422);
+                        error.should.have.property('$httpStatus', 422);
                         error.properties[0].should.have.property('code', 110);
                     });
             });
@@ -911,7 +1097,7 @@ describe('API Router', function() {
                     }.bind(this))
                     .catch(function(error) {
                         error.should.be.ok;
-                        error.should.have.property('code', 422);
+                        error.should.have.property('$httpStatus', 422);
                         error.properties[0].should.have.property('code', 110);
                     });
             });
@@ -929,7 +1115,7 @@ describe('API Router', function() {
                     }.bind(this))
                     .catch(function(error) {
                         error.should.be.ok;
-                        error.should.have.property('code', 422);
+                        error.should.have.property('$httpStatus', 422);
                         error.properties[0].should.have.property('code', 110);
                     });
             });
@@ -1338,7 +1524,7 @@ describe('API Router', function() {
                         resource: item
                     }).catch(function(error) {
                         error.should.be.ok;
-                        error.should.have.property('code', 422);
+                        error.should.have.property('$httpStatus', 422);
                         error.properties[0].should.have.property('code', 105);
                         error.properties[0].property.should.equal('param2.obj2');
                     });
@@ -1380,7 +1566,7 @@ describe('API Router', function() {
                         resource: item
                     }).catch(function(error) {
                         error.should.be.ok;
-                        error.should.have.property('code', 422);
+                        error.should.have.property('$httpStatus', 422);
                         error.properties.length.should.equal(1);
                         error.properties[0].should.have.property('code', 110);
                         error.properties[0].property.should.equal('param3');
@@ -1396,7 +1582,7 @@ describe('API Router', function() {
                     resource: item
                 }).catch(function(error) {
                     error.should.be.ok;
-                    error.should.have.property('code', 422);
+                    error.should.have.property('$httpStatus', 422);
                     error.properties[0].should.have.property('code', 105);
                     error.properties[0].property.should.equal('param4');
                 })
@@ -1409,7 +1595,7 @@ describe('API Router', function() {
                     resource: item
                 }).catch(function(error) {
                     error.should.be.ok;
-                    error.should.have.property('code', 422);
+                    error.should.have.property('$httpStatus', 422);
                     error.properties[0].should.have.property('code', 105);
                     error.properties[0].property.should.equal('param4');
                 })
@@ -1424,21 +1610,24 @@ describe('API Router', function() {
             var dataAllStatusCodes = Object.keys(statuses)
             .map(function(code) {
                 return {
-                    code: parseInt(code, 10),
-                    error: statuses[code]
+                    statusCode: parseInt(code, 10),
+                    statusMessage: statuses[code],
+                    message: "custom message",
+                    errorString: "ERROR",
+                    errorCode: 2005
                 }
             });
 
             var dataSuccessStatusCodes = dataAllStatusCodes.filter(function(data) {
-                return data.code >= 200 && data.code < 300;
+                return data.statusCode >= 200 && data.statusCode < 300;
             });
 
             var dataClientErrorStatusCodes = dataAllStatusCodes.filter(function(data) {
-                return data.code >= 400 && data.code < 500;
+                return data.statusCode >= 400 && data.statusCode < 500;
             });
 
             var dataServerErrorStatusCodes = dataAllStatusCodes.filter(function(data) {
-                return data.code >= 500 && data.code < 600;
+                return data.statusCode >= 500 && data.statusCode < 600;
             });
 
             describe('client errors', function() {
@@ -1654,7 +1843,7 @@ describe('API Router', function() {
                 });
 
                 dataClientErrorStatusCodes.slice(0, 1).forEach(function(data) {
-                    it('returns HTTP status code ' + data.code + ' and associated error string "' + data.error + '"', function() {
+                    it('returns HTTP status code ' + data.statusCode + ' and associated error message "' + data.statusMessage + '"', function() {
                         this.router.route('/will-error', {
                             type: 'object',
                             properties: {
@@ -1662,7 +1851,7 @@ describe('API Router', function() {
                             }
                         }, {
                             get: function(request, connection) {
-                                return request.error(data.code, 'test_message');
+                                return request.error(data.statusCode, data.message, data.errorCode, data.errorString);
                             }.bind(this)
                         });
 
@@ -1672,30 +1861,14 @@ describe('API Router', function() {
                         })
                         .catch(function(error) {
                             error.should.be.ok;
-                            error.should.have.property('code', data.code);
-                            error.should.have.property('error', data.error);
-                        }.bind(this));
-                    });
-
-                    it('returns error message', function() {
-                        this.router.route('/will-error', {
-                            type: 'object',
-                            properties: {
-                                foo: { type: 'string' }
-                            }
-                        }, {
-                            get: function(request, connection) {
-                                return request.error(data.code, 'test_message');
-                            }.bind(this)
-                        });
-
-                        return this.connection.get('/will-error')
-                        .then(function(error) {
-                            return Promise.reject('Did not expect success');
-                        })
-                        .catch(function(error) {
-                            error.should.be.ok;
-                            error.should.have.property('message', 'test_message');
+                            error.should.deep.equal({
+                                code: data.errorCode,
+                                error: data.errorString,
+                                message: data.message,
+                                properties: [],
+                                '$httpStatus': data.statusCode,
+                                '$httpMessage': data.statusMessage
+                            });
                         }.bind(this));
                     });
 
@@ -1707,7 +1880,7 @@ describe('API Router', function() {
                             }
                         }, {
                             get: function(request, connection) {
-                                return request.error(data.code, 'test_message');
+                                return request.error(data.statusCode, data.message, data.errorCode, data.errorString);
                             }.bind(this)
                         });
 
@@ -3162,7 +3335,14 @@ describe('API Router', function() {
                     throw new Error('Did not expect to resolve');
                 })
                 .catch(function(error) {
-                    error.should.have.property('code', 404);
+                    error.should.deep.equal({
+                        code: 2003,
+                        error: 'HANDLER NOT FOUND',
+                        message: 'No handlers available for resource /invalid',
+                        properties: [],
+                        '$httpStatus': 404,
+                        '$httpMessage': 'NOT FOUND'
+                    })
                 });
             });
         });
@@ -3614,9 +3794,14 @@ describe('API Router', function() {
                     obj.should.not.contain({
                         bar: 'test_bar'
                     });
-
-                    // TODO: Determine standard model for error objects
-                    obj.should.have.property('error');
+                    obj.should.deep.equal({
+                        code: 2003,
+                        error: 'HANDLER NOT FOUND',
+                        message: 'No handlers available for resource /unknown',
+                        properties: [],
+                        '$httpStatus': 404,
+                        '$httpMessage': 'NOT FOUND'
+                    });
                     done();
                 }.bind(this));
                 this.middleware(this.req, this.res, this.next);
@@ -4156,8 +4341,14 @@ describe('API Router', function() {
                 throw new Error('Did not expect promise to resolve');
             })
             .catch(function(error) {
-                error.should.have.property('code', 508); // 508: LOOP DETECTED
-                error.should.have.property('message', 'Alias pointed back to itself');
+                error.should.deep.equal({
+                    code: 2007,
+                    error: 'ALIAS POINTING TO ITSELF',
+                    message: 'Alias pointed back to itself',
+                    properties: [],
+                    '$httpStatus': 508,
+                    '$httpMessage': 'LOOP DETECTED'
+                })
             });
         });
 
@@ -4188,8 +4379,14 @@ describe('API Router', function() {
                     throw new Error('Did not expect promise to resolve');
                 })
                 .catch(function(error) {
-                    error.should.have.property('code', 500);
-                    error.should.have.property('message', 'Alias did not resolve to a Request instance');
+                   error.should.deep.equal({
+                        code: 2006,
+                        error: 'ALIAS DID NOT RESOLVE',
+                        message: 'Alias did not resolve to a Request instance',
+                        properties: [],
+                        '$httpStatus': 500,
+                        '$httpMessage': 'INTERNAL SERVER ERROR'
+                    });
                 });
             });
 
@@ -4206,8 +4403,14 @@ describe('API Router', function() {
                     throw new Error('Did not expect promise to resolve');
                 })
                 .catch(function(error) {
-                    error.should.have.property('code', 500);
-                    error.should.have.property('message', 'Alias did not resolve to a Request instance');
+                    error.should.deep.equal({
+                        code: 2006,
+                        error: 'ALIAS DID NOT RESOLVE',
+                        message: 'Alias did not resolve to a Request instance',
+                        properties: [],
+                        '$httpStatus': 500,
+                        '$httpMessage': 'INTERNAL SERVER ERROR'
+                    });
                 });
             });
         });
