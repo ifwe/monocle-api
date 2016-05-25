@@ -925,6 +925,7 @@ describe('PropertyFilter', function() {
                 //Props requested, Props missing
                 [['@foo'], ['@foo']],
                 [['foo', 'unknown'], ['unknown']],
+                [['foo$ds'], ['foo$ds']],
                 [['foo', 'test', 'unknown'],    ['test', 'unknown']],
                 [['items@not-exist'], ['items@not-exist']],
                 [['items@user.not-exist'], ['items@user.not-exist']],
