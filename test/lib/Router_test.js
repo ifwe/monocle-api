@@ -1613,8 +1613,8 @@ describe('API Router', function() {
                     statusCode: parseInt(code, 10),
                     statusMessage: statuses[code],
                     message: "custom message",
-                    errorString: "ERROR",
-                    errorCode: 2005
+                    error: "ERROR",
+                    code: 2005
                 }
             });
 
@@ -1851,7 +1851,7 @@ describe('API Router', function() {
                             }
                         }, {
                             get: function(request, connection) {
-                                return request.error(data.statusCode, data.message, data.errorCode, data.errorString);
+                                return request.error(data.statusCode, data);
                             }.bind(this)
                         });
 
@@ -1862,8 +1862,8 @@ describe('API Router', function() {
                         .catch(function(error) {
                             error.should.be.ok;
                             error.should.deep.equal({
-                                code: data.errorCode,
-                                error: data.errorString,
+                                code: data.code,
+                                error: data.error,
                                 message: data.message,
                                 properties: [],
                                 '$httpStatus': data.statusCode,
@@ -3338,7 +3338,7 @@ describe('API Router', function() {
                     error.should.deep.equal({
                         code: 2003,
                         error: 'HANDLER NOT FOUND',
-                        message: 'No handlers available for resource /invalid',
+                        message: 'No handlers available for resource',
                         properties: [],
                         '$httpStatus': 404,
                         '$httpMessage': 'NOT FOUND'
@@ -3797,7 +3797,7 @@ describe('API Router', function() {
                     obj.should.deep.equal({
                         code: 2003,
                         error: 'HANDLER NOT FOUND',
-                        message: 'No handlers available for resource /unknown',
+                        message: 'No handlers available for resource',
                         properties: [],
                         '$httpStatus': 404,
                         '$httpMessage': 'NOT FOUND'
