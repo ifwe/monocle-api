@@ -1,6 +1,6 @@
 {
   "name": "monocle-api",
-  "version": "0.5.5",
+  "version": "1.0.0",
   "description": "API router focused on consistency, flexibility, and performance.",
   "main": "lib/index.js",
   "scripts": {
