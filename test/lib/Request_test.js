@@ -133,4 +133,21 @@ describe('Request', function() {
             expect(this.request.getResourceId()).to.be.undefined;
         });
     });
+
+    describe('error', function() {
+        beforeEach(function() {
+            this.request = new Request('/foo');
+        });
+
+        it('rejects with an error object', function() {
+            return this.request.error(500).catch(function (error) {
+                error.should.have.property('stack');
+                error.should.have.property('code');
+                error.should.have.property('error');
+                error.should.have.property('message');
+                error.should.have.property('properties');
+            });
+        });
+
+    });
 });
