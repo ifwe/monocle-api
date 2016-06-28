@@ -569,6 +569,57 @@ describe('API Router', function() {
                         error.properties[0].property.should.equal('objectParam1');
                     });
                 });
+
+                describe.only('with symlinks', function() {
+                    beforeEach(function() {
+                        this.schema = {
+                            type: 'object',
+                            properties: {
+                                foo: {
+                                    type: 'object',
+                                    properties: {
+                                        bar: { type: 'string' },
+                                        derp: { type: 'integer' }
+                                    }
+                                }
+                            }
+                        };
+                        this.router.route(['/nested-query', 'foo{}'], this.schema, {
+                            get: function(request, connection) {
+                                return {
+                                    foo: new Symlink('/foo')
+                                };
+                            }
+                        });
+
+                        this.router.route(['/foo', 'derp=123'], this.schema.properties.foo, {
+                            get: function(request, connection) {
+                                return {
+                                    bar: 'test bar',
+                                    derp: request.getQuery('derp')
+                                };
+                            }
+                        });
+                    });
+
+                    it('supports default query params', function() {
+                        return this.connection.get('/nested-query')
+                        .then(function(result) {
+                            result.foo.derp.should.equal(123);
+                        })
+                    });
+
+                    it('supports client-provided query params', function() {
+                        return this.connection.get('/nested-query', {
+                            query: {
+                                'foo{}': { derp: 456 }
+                            }
+                        })
+                        .then(function(result) {
+                            result.foo.derp.should.equal(456);
+                        })
+                    });
+                });
             });
 
             describe('float', function() {
