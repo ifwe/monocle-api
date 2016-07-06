@@ -570,7 +570,7 @@ describe('API Router', function() {
                     });
                 });
 
-                describe.only('with symlinks', function() {
+                describe('with symlinks', function() {
                     beforeEach(function() {
                         this.schema = {
                             type: 'object',
@@ -579,7 +579,13 @@ describe('API Router', function() {
                                     type: 'object',
                                     properties: {
                                         bar: { type: 'string' },
-                                        derp: { type: 'integer' }
+                                        derp: { type: 'integer' },
+                                        meep: {
+                                            type: 'object',
+                                            properties: {
+                                                bloop: { type: 'string' }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -592,11 +598,20 @@ describe('API Router', function() {
                             }
                         });
 
-                        this.router.route(['/foo', 'derp=123'], this.schema.properties.foo, {
+                        this.router.route(['/foo', 'derp=123&meep'], this.schema.properties.foo, {
                             get: function(request, connection) {
                                 return {
                                     bar: 'test bar',
-                                    derp: request.getQuery('derp')
+                                    derp: request.getQuery('derp'),
+                                    meep: new Symlink('/meep')
+                                };
+                            }
+                        });
+
+                        this.router.route(['/meep', 'bloop=bleep'], this.schema.properties.foo.properties.meep, {
+                            get: function(request, connection) {
+                                return {
+                                    bloop: request.getQuery('bloop')
                                 };
                             }
                         });
@@ -606,6 +621,7 @@ describe('API Router', function() {
                         return this.connection.get('/nested-query')
                         .then(function(result) {
                             result.foo.derp.should.equal(123);
+                            result.foo.meep.bloop.should.equal('bleep');
                         })
                     });
 
@@ -617,6 +633,17 @@ describe('API Router', function() {
                         })
                         .then(function(result) {
                             result.foo.derp.should.equal(456);
+                        })
+                    });
+
+                    it('supports deeply nested query params', function() {
+                        return this.connection.get('/nested-query', {
+                            query: {
+                                'foo{}': { meep: { bloop: 'schwing' } }
+                            }
+                        })
+                        .then(function(result) {
+                            result.foo.meep.bloop.should.equal('schwing');
                         })
                     });
                 });
