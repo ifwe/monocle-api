@@ -649,6 +649,64 @@ describe('API Router', function() {
                 });
             });
 
+            describe('with grandchildren symlinks', function() {
+                beforeEach(function() {
+                    this.schema = {
+                        type: 'object',
+                        properties: {
+                            child: {
+                                type: 'object',
+                                properties: {
+                                    grandchild: {
+                                        type: 'object',
+                                        properties: {
+                                            name: { type: 'string' }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    };
+
+                    this.router.route(['/parent', 'child{}'], this.schema, {
+                        get: function(request, connection) {
+                            console.log(request.getQueries());
+                            return {
+                                child: {
+                                    grandchild: new Symlink('/grandchild')
+                                }
+                            };
+                        }
+                    });
+
+                    this.router.route(['/grandchild', 'name=joe'], this.schema.properties.child.properties.grandchild, {
+                        get: function(request, connection) {
+                            return {
+                                name: request.getQuery('name')
+                            };
+                        }
+                    });
+                });
+
+                it('supports default query params', function() {
+                    return this.connection.get('/parent')
+                    .then(function(result) {
+                        result.child.grandchild.name.should.equal('joe');
+                    })
+                });
+
+                it('supports client provided query params', function() {
+                    return this.connection.get('/parent', {
+                        query: {
+                            'child{}': { grandchild: { name: 'blerb' } }
+                        }
+                    })
+                    .then(function(result) {
+                        result.child.grandchild.name.should.equal('blerb');
+                    })
+                });
+            });
+
             describe('float', function() {
                 beforeEach(function() {
                     this.meeSchema = {
