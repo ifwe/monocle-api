@@ -647,17 +647,95 @@ describe('API Router', function() {
                         })
                     });
                 });
-            });
 
-            describe('with grandchildren symlinks', function() {
-                beforeEach(function() {
-                    this.schema = {
-                        type: 'object',
-                        properties: {
-                            child: {
-                                type: 'object',
-                                properties: {
-                                    grandchild: {
+                describe('with grandchildren symlinks', function() {
+                    beforeEach(function() {
+                        this.schema = {
+                            type: 'object',
+                            properties: {
+                                child: {
+                                    type: 'object',
+                                    properties: {
+                                        grandchild: {
+                                            type: 'object',
+                                            properties: {
+                                                name: { type: 'string' }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        };
+
+                        this.router.route(['/parent', 'child{}'], this.schema, {
+                            get: function(request, connection) {
+                                return {
+                                    child: {
+                                        grandchild: new Symlink('/grandchild')
+                                    }
+                                };
+                            }
+                        });
+
+                        this.router.route(['/grandchild', 'name=joe'], this.schema.properties.child.properties.grandchild, {
+                            get: function(request, connection) {
+                                return {
+                                    name: request.getQuery('name')
+                                };
+                            }
+                        });
+                    });
+
+                    it('supports default query params', function() {
+                        return this.connection.get('/parent')
+                        .then(function(result) {
+                            result.child.grandchild.name.should.equal('joe');
+                        })
+                    });
+
+                    it('supports client provided query params', function() {
+                        return this.connection.get('/parent', {
+                            query: {
+                                'child{}': { grandchild: { name: 'blerb' } }
+                            }
+                        })
+                        .then(function(result) {
+                            result.child.grandchild.name.should.equal('blerb');
+                        })
+                    });
+                });
+
+                describe('with collection of collections', function() {
+                    beforeEach(function() {
+                        // Sample resource
+                        // {
+                        //     items: [
+                        //         {
+                        //             id: 1,
+                        //             items: [
+                        //                 { name: 'a' },
+                        //                 { name: 'b' },
+                        //                 { name: 'c' }
+                        //             ]
+                        //         },
+                        //         {
+                        //             id: 2,
+                        //             items: [
+                        //                 { name: 'd' },
+                        //                 { name: 'e' },
+                        //                 { name: 'f' }
+                        //             ]
+                        //         }
+                        //     ]
+                        // }
+                        this.subCollection = {
+                            type: 'object',
+                            properties: {
+                                id: { type: 'integer' },
+                                name: { type: 'string' },
+                                items: {
+                                    type: 'array',
+                                    items: {
                                         type: 'object',
                                         properties: {
                                             name: { type: 'string' }
@@ -665,45 +743,60 @@ describe('API Router', function() {
                                     }
                                 }
                             }
-                        }
-                    };
+                        };
 
-                    this.router.route(['/parent', 'child{}'], this.schema, {
-                        get: function(request, connection) {
-                            console.log(request.getQueries());
-                            return {
-                                child: {
-                                    grandchild: new Symlink('/grandchild')
+                        this.schema = {
+                            type: 'object',
+                            properties: {
+                                items: {
+                                    type: 'array',
+                                    items: this.subCollection
                                 }
-                            };
-                        }
+                            }
+                        };
+
+                        this.router.route(['/collection', 'items[]'], this.schema, {
+                            get: function(request, connection) {
+                                return {
+                                    items: [
+                                        new Symlink('/subCollection/1'),
+                                        new Symlink('/subCollection/2'),
+                                        new Symlink('/subCollection/3')
+                                    ]
+                                };
+                            }
+                        });
+
+                        this.router.route(['/subCollection/:id', 'name=joe'], this.subCollection, {
+                            get: function(request, connection) {
+                                return {
+                                    id: request.getParam('id'),
+                                    items: [
+                                        { name: request.getQuery('name') }
+                                    ]
+                                };
+                            }
+                        });
                     });
 
-                    this.router.route(['/grandchild', 'name=joe'], this.schema.properties.child.properties.grandchild, {
-                        get: function(request, connection) {
-                            return {
-                                name: request.getQuery('name')
-                            };
-                        }
+                    it('supports default query params', function() {
+                        return this.connection.get('/collection')
+                        .then(function(result) {
+                            result.items[0].items[0].name.should.equal('joe');
+                            result.items[0].id.should.equal(1);
+                        })
                     });
-                });
 
-                it('supports default query params', function() {
-                    return this.connection.get('/parent')
-                    .then(function(result) {
-                        result.child.grandchild.name.should.equal('joe');
-                    })
-                });
-
-                it('supports client provided query params', function() {
-                    return this.connection.get('/parent', {
-                        query: {
-                            'child{}': { grandchild: { name: 'blerb' } }
-                        }
-                    })
-                    .then(function(result) {
-                        result.child.grandchild.name.should.equal('blerb');
-                    })
+                    it('supports client provided query params', function() {
+                        return this.connection.get('/collection', {
+                            query: {
+                                'items[]': [ { name: 'bob' } ]
+                            }
+                        })
+                        .then(function(result) {
+                            result.items[0].items[0].name.should.equal('bob');
+                        })
+                    });
                 });
             });
 
