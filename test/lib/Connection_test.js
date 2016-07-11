@@ -70,5 +70,35 @@ describe('Connection', function() {
                 });
             });
         });
+
+        describe('similar GET requests', function() {
+            it('caches and reuses them', function() {
+                for (var i = 0; i < 3; i++) {
+                    this.connection.get('/foo', {
+                        props: ['a', 'b', 'c'],
+                        query: {
+                            derp: 'berp'
+                        }
+                    });
+                }
+
+                this.router.handle.calledOnce.should.be.true;
+            });
+        });
+
+        describe('dissimilar GET requests', function() {
+            it('does not reuse them', function() {
+                for (var i = 0; i < 3; i++) {
+                    this.connection.get('/foo', {
+                        props: ['a', 'b', 'c'],
+                        query: {
+                            derp: i
+                        }
+                    });
+                }
+
+                this.router.handle.calledThrice.should.be.true;
+            });
+        });
     });
 });
