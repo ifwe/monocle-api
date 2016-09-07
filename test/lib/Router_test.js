@@ -4369,6 +4369,40 @@ describe('API Router', function() {
                 this.middleware(this.req, this.res, this.next);
             });
 
+            it('processes batch map', function(done) {
+                this.req.method ='POST';
+                this.req.url = '/my-api/_batch';
+                this.req.body = {
+                    bar: {
+                        method: 'GET',
+                        url: '/foo',
+                        body: { bar: 'updated_bar' }
+                    },
+                    flerp: {
+                        method: 'POST',
+                        url: '/derp',
+                        body: { flerp: 'updated_flerp' }
+                    }
+                };
+
+                this.res.end = function(response) {
+                    var results = JSON.parse(response);
+                    results.should.be.an('object');
+
+                    results.bar.should.have.property('status', 200);
+                    results.bar.should.have.property('body');
+                    results.bar.body.should.contain({ bar: 'test_bar' });
+
+                    results.flerp.should.have.property('status', 200);
+                    results.flerp.should.have.property('body');
+                    results.flerp.body.should.contain({ flerp: 'updated_flerp' });
+
+                    done();
+                }.bind(this);
+
+                this.middleware(this.req, this.res, this.next);
+            });
+
             it('passes query to appropriate request', function(done) {
                 this.req.method ='POST';
                 this.req.url = '/my-api/_batch';
