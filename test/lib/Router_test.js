@@ -4389,6 +4389,9 @@ describe('API Router', function() {
                     var results = JSON.parse(response);
                     results.should.be.an('object');
 
+                    results.should.have.property('$type', 'batch');
+                    results.should.have.property('$httpStatus', 200);
+
                     results.bar.should.have.property('status', 200);
                     results.bar.should.have.property('body');
                     results.bar.body.should.contain({ bar: 'test_bar' });
