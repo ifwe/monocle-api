@@ -4,8 +4,8 @@
   "description": "API router focused on consistency, flexibility, and performance.",
   "main": "lib/index.js",
   "scripts": {
-    "test": "grunt mochaTest",
-    "watch": "grunt watch",
+    "test": "./node_modules/.bin/istanbul cover ./node_modules/.bin/_mocha",
+    "watch": "./node_modules/.bin/_mocha --watch",
     "simple-demo": "nodemon demo/simple.js --watch lib --watch demo --ext js,jade,css",
     "demo": "nodemon demo/index.js --watch lib --watch demo --ext js,jade,css"
   },
@@ -25,7 +25,6 @@
   },
   "homepage": "https://github.com/ifwe/monocle-api",
   "devDependencies": {
-    "blanket": "1.1.6",
     "chai": "1.9.1",
     "grunt": "0.4.5",
     "grunt-bump": "0.6.0",
@@ -40,8 +39,10 @@
     "bluebird": "3.3.5",
     "busboy": "0.2.12",
     "debug": "2.2.0",
+    "istanbul": "0.4.5",
     "jade": "1.11.0",
     "jsen": "0.6.0",
+    "jstransformer-stylus": "1.3.0",
     "lodash": "3.10.1",
     "monocle-api-props": "0.0.3",
     "path-to-regexp": "1.2.0"
