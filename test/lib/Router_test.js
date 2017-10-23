@@ -1435,32 +1435,54 @@ describe('API Router', function() {
 
             describe('with array of handlers', function() {
                 beforeEach(function() {
-                    this.getTeeSpy = sinon.spy(function(request, connection) {
-                        return {
-                            tee: 'test tee',
-                            nullable: null
-                        };
+                    this.schema = {
+                        type: 'object',
+                        properties: {
+                            foo: {
+                                type: 'string'
+                            },
+                            bar: {
+                                type: 'string'
+                            }
+                        }
+                    };
+
+                    var resource = {
+                        foo: 'test foo',
+                        bar: 'test bar'
+                    }
+
+                    this.getFooSpy = sinon.spy(function(request, connection) {
+                        return { foo: resource.foo };
+                    });
+
+                    this.getBarSpy = sinon.spy(function(request, connection) {
+                        return { bar: resource.bar };
                     });
 
 
                     this.patchFooSpy = sinon.spy(function(request, connection) {
-                        return {
-                            tee: 'test foo',
-                            nullable: null
-                        };
+                        resource.foo = request.getResource().foo;
+                        return { foo: resource.foo };
                     });
 
 
-                    this.patchTeeSpy = sinon.spy(function(request, connection) {
-                        return {
-                            tee: 'test tee',
-                            nullable: null
-                        };
+                    this.patchBarSpy = sinon.spy(function(request, connection) {
+                        resource.foo = request.getResource().bar;
+                        return { foo: resource.bar };
                     });
 
-                    //Add property to fooSchema
-                    this.fooSchema.properties.tee = { type: 'string' }
-                    this.router.route('/multiple-handlers/:fooId', this.fooSchema, {
+                    this.putFooSpy = sinon.spy(function(request, connection) {
+                        resource.foo = request.getResource().foo;
+                        return { foo: resource.foo };
+                    });
+
+                    this.putBarSpy = sinon.spy(function(request, connection) {
+                        resource.foo = request.getResource().bar;
+                        return { foo: resource.bar };
+                    });
+
+                    this.router.route('/multiple-handlers', this.schema, {
                         get: [
                             {
                                 props: ['foo'],
@@ -1468,7 +1490,7 @@ describe('API Router', function() {
                             },
                             {
                                 props: ['bar'],
-                                callback: this.getTeeSpy
+                                callback: this.getBarSpy
                             }
                         ],
 
@@ -1478,95 +1500,101 @@ describe('API Router', function() {
                                 callback: this.patchFooSpy
                             },
                             {
-                                props: ['tee'],
-                                callback: this.patchTeeSpy
+                                props: ['bar'],
+                                callback: this.patchBarSpy
                             }
-
                         ],
 
                         put: [
                             {
                                 props: ['foo'],
-                                callback: this.patchFooSpy
+                                callback: this.putFooSpy
                             },
                             {
-                                props: ['tee'],
-                                callback: this.patchTeeSpy
+                                props: ['bar'],
+                                callback: this.putBarSpy
                             }
-
                         ]
                     });
                 });
 
                 describe('GET method', function() {
                     it('calls all functions if no props are requested', function() {
-                        this.connection.get('/multiple-handlers/123')
+                        return this.connection.get('/multiple-handlers')
                         .then(function(foo) {
-                            this.getTeeSpy.called.should.be.true;
                             this.getFooSpy.called.should.be.true;
-                        }.bind(this))
+                            this.getBarSpy.called.should.be.true;
+                        }.bind(this));
                     });
 
                     it('calls associated function with props passed in', function() {
-                        this.connection.get('/multiple-handlers/123', {props: ['foo']})
+                        return this.connection.get('/multiple-handlers', {props: ['foo']})
                         .then(function(foo) {
-                            this.getTeeSpy.called.should.be.false;
                             this.getFooSpy.called.should.be.true;
-                        }.bind(this))
+                            this.getBarSpy.called.should.be.false;
+                        }.bind(this));
+                    });
+
+                    it('calls associated function with props passed in', function() {
+                        return this.connection.get('/multiple-handlers', {props: ['bar']})
+                        .then(function(foo) {
+                            this.getFooSpy.called.should.be.false;
+                            this.getBarSpy.called.should.be.true;
+                        }.bind(this));
                     });
                 });
 
                 describe('PATCH method', function() {
-                    it('calls associated function with resource passed in', function() {
-                        this.resource = {
+                    it('calls associated function with resource passed in and returns requested properties', function() {
+                        this.options = {
                             resource: {
-                                'tee': 'yoo'
-                            }
-                        }
-                        this.connection.patch('/multiple-handlers/123', this.resource)
-                        .then(function(foo) {
-                            this.patchTeeSpy.called.should.be.true;
-                            this.patchFooSpy.called.should.be.false;
-                        }.bind(this))
+                                foo: 'updated foo'
+                            },
+                            props: [ 'foo', 'bar' ]
+                        };
+                        return this.connection.patch('/multiple-handlers', this.options)
+                        .then((foo) => {
+                            this.patchFooSpy.called.should.be.true;
+                            this.patchBarSpy.called.should.be.false;
+                        });
                     });
-                    it('does not call any function if resource is empty', function() {
-                        this.resource = {
-                            resource: {
 
-                            }
-                        }
-                        this.connection.patch('/multiple-handlers/123', this.resource)
+                    it('does not call any function if resource is empty', function() {
+                        this.options = {
+                            resource: { }
+                        };
+                        return this.connection.patch('/multiple-handlers', this.options)
                         .then(function(foo) {
-                            this.patchTeeSpy.called.should.be.false;
                             this.patchFooSpy.called.should.be.false;
-                        }.bind(this))
+                            this.patchBarSpy.called.should.be.false;
+                        }.bind(this));
                     });
                 });
 
                 describe('PUT method', function() {
-                    it('calls associated function with resource passed in', function() {
-                        this.resource = {
+                    it('calls associated function with resource passed in and returns requested properties', function() {
+                        this.options = {
                             resource: {
-                                'tee': 'yoo'
-                            }
-                        }
-                        this.connection.put('/multiple-handlers/123', this.resource)
+                                'foo': 'updated foo'
+                            },
+                            props: [ 'foo', 'bar' ]
+                        };
+                        return this.connection.put('/multiple-handlers', this.options)
                         .then(function(foo) {
-                            this.patchTeeSpy.called.should.be.true;
-                            this.patchFooSpy.called.should.be.false;
-                        }.bind(this))
+                            this.putFooSpy.called.should.be.true;
+                            this.putBarSpy.called.should.be.false;
+                        }.bind(this));
                     });
-                    it('does not call any function if resource is empty', function() {
-                        this.resource = {
-                            resource: {
 
-                            }
-                        }
-                        this.connection.put('/multiple-handlers/123', this.resource)
+                    it('does not call any function if resource is empty', function() {
+                        this.options = {
+                            resource: { }
+                        };
+                        return this.connection.put('/multiple-handlers', this.options)
                         .then(function(foo) {
-                            this.patchTeeSpy.called.should.be.false;
-                            this.patchFooSpy.called.should.be.false;
-                        }.bind(this))
+                            this.putFooSpy.called.should.be.false;
+                            this.putBarSpy.called.should.be.false;
+                        }.bind(this));
                     });
                 });
             });
