@@ -1559,6 +1559,19 @@ describe('API Router', function() {
                         });
                     });
 
+                    it('does not attempt to return full resource if no props are specified', function() {
+                        this.options = {
+                            resource: {
+                                foo: 'updated foo'
+                            }
+                        };
+                        return this.connection.patch('/multiple-handlers', this.options)
+                        .then(function(foo) {
+                            foo.should.have.property('foo', 'updated foo');
+                            foo.should.not.have.property('bar');
+                        }.bind(this));
+                    });
+
                     it('does not call any function if resource is empty', function() {
                         this.options = {
                             resource: { }
