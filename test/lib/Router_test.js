@@ -4464,13 +4464,13 @@ describe('API Router', function() {
                 this.res.end = function(response) {
                     this.fooGetSpy.called.should.be.true;
                     var fooRequest = this.fooGetSpy.lastCall.args[0];
-                    fooRequest.getUrl().query.should.contain({
+                    expect(fooRequest.getUrl().query).to.contain({
                         test1: 'canary foo'
                     });
 
                     this.derpGetSpy.called.should.be.true;
                     var derpRequest = this.derpGetSpy.lastCall.args[0];
-                    derpRequest.getUrl().query.should.contain({
+                    expect(derpRequest.getUrl().query).to.contain({
                         test2: 'canary derp'
                     });
 

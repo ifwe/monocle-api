@@ -44,7 +44,7 @@
     "jsen": "0.6.0",
     "jstransformer-stylus": "1.3.0",
     "lodash": "3.10.1",
-    "monocle-api-props": "0.0.3",
+    "monocle-api-props": "0.0.4",
     "path-to-regexp": "1.2.0"
   }
 }

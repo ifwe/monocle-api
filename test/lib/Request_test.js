@@ -40,7 +40,7 @@ describe('Request', function() {
                     if (null === expectedPropertyValue) {
                         expect(url[expectedPropertyName]).to.be.null;
                     } else if (typeof expectedPropertyValue === 'object') {
-                        url[expectedPropertyName].should.deep.equal(expectedPropertyValue);
+                        expect(url[expectedPropertyName]).deep.equal(expectedPropertyValue);
                     } else {
                         url.should.have.property(expectedPropertyName, expectedPropertyValue);
                     }
