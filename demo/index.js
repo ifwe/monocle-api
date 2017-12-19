@@ -13,6 +13,7 @@ var OffsetPaginator = require('../lib').OffsetPaginator;
 var Symlink = require('../lib').Symlink;
 var fs = require('fs');
 var path = require('path');
+var chain = require('connect-chain');
 
 /*** Set up simple HTTP server ***/
 
@@ -42,7 +43,14 @@ var photoCollectionSchema = require('./schemas/photo-collection');
 
 /*** Set up a new router ***/
 
-var api = new Router();
+var api = new Router({
+    "openapi": "3.0.0",
+    "info": {
+        "version": 1,
+        "description": "Some Demo Stuff",
+        "title": "Demo App"
+    }
+});
 
 /*** Define the routes ***/
 
@@ -331,6 +339,19 @@ api.alias('/me', function(request, connection) {
 // Allow uploaded files to be served
 var serveStatic = require('serve-static');
 app.use(serveStatic(path.join(__dirname, 'files')));
+
+var swagger = require('swagger-ui-dist').getAbsoluteFSPath();
+app.use("/swagger", chain(
+  function(req, res, next) {
+      if(req.method === "GET" && req.url === '/') {
+          res.writeHead(302, {'location': '?url=http://localhost:5150/my-api'});
+          return res.end();
+      }
+
+      next();
+  },
+  serveStatic(swagger)
+));
 
 // Mount the API as middleware
 app.use(api.middleware({
