@@ -3,185 +3,230 @@
 Monocle API Router for Connect
 ==============================
 
-Monocle is a an API router that focuses on consistency, flexibility and performance.
+Monocle is a an API router that focuses on *consistency*, *flexibility* and *performance*.
 
-## Features
+## Consistency
 
-### Client-driven
-
-Only each client knows their own needs, so when communicating with the API, each client can specify the properties of a resource it is interested. Want the `user` resource without getting a ton of extra data that you'll never use? No problem!
+Monocle implements various features to encourage consistency across all endpoints.
 
 ### Schemas
 
-API Router uses [JSON Schema](http://json-schema.org/) to configure and validate APIs. This encourages API consistency by validating return values and allows you to view the schema by appending `?schema` to any resource URL.
+Monocle requires that each resource path includes a schema defined in [JSON Schema](http://json-schema.org/) format. The schema is shared among all HTTP verbs for the resource, e.g. `GET`, `POST`, `PUT`, etc. Monocle also validates all input and output with the schema, ensuring that the schema remains the source of truth for how data is structured.
 
-## Basic Usage
+### Server-Side Symlinks
+
+Monocle supports "Server-Side Symlinks" to easily embed a resource in another resource. The Monocle Framework will automatically resolve these symlinks on the server, resulting in a complete response for clients. By utilizing Server-Side Symlinks, consistency comes for free when the Symlinked resources are updated.
+
+## Flexibility
+
+Monocle makes no assumptions about how clients consume the data -- the only assumption it makes is that client needs will change regularly.
+
+### Property Filtering
+
+Monocle allows clients to specify how much data to return for any given resource. Property filtering supports top-level properties, nested properties, and plucking properties from arrays. See [Monocle API Props](https://github.com/ifwe/monocle-api-props) for details on how property filtering works.
+
+## Performance
+
+Monocle allows for performance optimization via caching and property routing.
+
+### Caching
+
+Monocle provides cache-control headers for basic REST, but also supports nested resource caching when using the [Monocle Client](https://github.com/ifwe/monocle-client-js). Collection caching is also supported via the use of weak e-tags.
+
+### Property Routing
+
+For large resources, Monocle allows you to provide it with various callbacks that map to each of the properties in the resource. When used with *Property Filtering*, Monocle will automatically call only the required callbacks to fulfill the request.
+
+--
+
+## Quick Start
+
+To get started, make sure you're using *Node 8.8.1* or greater, and create a new node project in an empty directory:
+
+```
+$ mkdir my-monocle-server
+$ cd my-monocle-server
+$ npm init
+```
+
+After filling in the details, install the required dependencies:
+
+```
+$ npm install monocle-api connect body-parser
+
+```
+
+Create a file named `server.js` and add the following code:
+
 
 ```js
-var connect = require('connect');
-var app = connect();
-var Promise = require('bluebird');
+const connect = require('connect');
+const app = connect();
 
 // Allow parsing of JSON-encoded request body
-var bodyParser = require('body-parser');
+const bodyParser = require('body-parser');
 app.use(bodyParser.json());
 
 // Create an API Router instance
-var Monocle = require('../lib');
-var api = new Monocle();
+const MonocleApi = require('monocle-api');
+const api = new MonocleApi();
+const Resource = MonocleApi.Resource;
 
-// For this simple demo we'll set up a simple in-memory data store for the user resource.
-var user = {
+// For this simple demo we'll set up a simple in-memory data store for the user resources.
+const users = {
+  1: {
+    userId: 1,
     displayName: 'Alice',
     age: 27,
-    gender: 'F'
+    gender: 'female',
+  },
+  2: {
+    userId: 2,
+    displayName: 'Fred',
+    age: 22,
+    gender: 'male',
+  },
 };
 
 // Configure your first API route
 api.route(
-    // Define the URL pattern for this resource
-    '/user',
+  // Define the URL pattern for this resource
+  '/users/:userId',
 
-    // Define the schema for this resource. The schema will be shared across the supported HTTP methods.
-    {
-        type: 'object',
-        properties: {
-            displayName: { type: 'string' },
-            age: { type: 'integer' },
-            gender: { type: 'string' }
-        }
+  // Define the schema for this resource. The schema will be shared across the supported HTTP methods for this resource.
+  {
+    name: 'User',
+    description: 'A user resource',
+    type: 'object',
+    properties: {
+      userId: { type: 'integer', minimum: 1, readOnly: true, sample: 123 },
+      displayName: { type: 'string', minLength: 1, maxLength: 255 },
+      age: { type: 'integer', minimum: 18, maximum: 99 },
+      gender: { type: 'string', enum: ['male', 'female'] },
+    },
+  },
+
+  // Define the HTTP methods that are supported by this url.
+  {
+    // Handle GET requests for this resource
+    get: (request) => {
+      let userId = request.getParam('userId'); // extracts userId param from url, automatically casts it to int due to schema definition
+
+      let user = users[userId];
+      if (!user) {
+        return request.error(404, { message: 'User not found' });
+      }
+
+      // Resolve promise with the user object and it will be converted to JSON automatically
+      // Monocle will also validate the return value and return a 500-level error code if the value does not validate.
+      return new Resource(`/users/${userId}`, user, 60000);
     },
 
-    // Define the HTTP methods that are supported by this url.
-    {
-        // Handle GET requests for this resource
-        get: function(request) {
-            return new Promise(function(resolve, reject) {
-                if (!user) {
-                    return reject("No user found.");
-                }
+    // Handle PUT requests for this resource
+    put: (request) => {
+      let userId = request.getParam('userId'); // extracts userId param from url, automatically casts it to int due to schema definition
 
-                // Resolve promise with the user object and it will be converted to JSON automatically
-                resolve(user);
-            });
-        },
+      // Replace entire user object with provided resource, which is automatically JSON-decoded
+      // Monocle will have rejected this request if the provided resource did not validate with the schema.
+      user = request.getResource();
 
-        // Handle PUT requests for this resource
-        put: function(request) {
-            return new Promise(function(resolve, reject) {
-                // Replace entire user object with provided resource, which is automatically JSON-decoded
-                user = request.getResource();
-
-                // Resolve promise with the updated user object
-                resolve(user);
-            });
-        }
-    }
+      // Resolve promise with the updated user object
+      return new Resource(`/users/${userId}`, user, 60000);
+    },
+  }
 );
 
 // Add the API middleware to your connect app
 app.use(api.middleware());
 
 // Create web server and listen on port 5150
-var http = require('http');
+const http = require('http');
 http.createServer(app).listen(5150, function() {
-    console.log("Monocle API is now listening on port 5150");
+  console.log("Monocle API is now listening on port 5150");
 });
 ```
+
+You can now start your monocle server by running `node server.js`.
+
+## REST
 
 Monocle API supports RESTful API calls:
 
 ```bash
-$ curl -i http://127.0.0.1:5150/user
+$ curl -i http://127.0.0.1:5150/users/1
 HTTP/1.1 200 OK
 Content-Type: application/json
-Date: Thu, 13 Aug 2015 17:50:29 GMT
+cache-control: private, max-age=60000
+Date: Thu, 08 Feb 2018 23:27:30 GMT
 Connection: keep-alive
-Transfer-Encoding: chunked
+Content-Length: 144
 
 {
+  "$type": "resource",
+  "$id": "/users/1",
+  "$expires": 60000,
+  "userId": 1,
   "displayName": "Alice",
   "age": 27,
-  "gender": "F"
+  "gender": "female"
 }
 
-$ curl -X PUT -d '{"displayName": "Joe", "age": 42, "gender": "M"}' -i http://127.0.0.1:5150/user
+
+$ curl -X PUT -H 'Content-Type: application/json' -d '{"displayName": "Joe", "age": 42, "gender": "male"}' -i http://127.0.0.1:5150/users/1
 HTTP/1.1 200 OK
 Content-Type: application/json
-Date: Thu, 13 Aug 2015 17:50:29 GMT
+cache-control: private, max-age=60000
+Date: Thu, 08 Feb 2018 23:29:48 GMT
 Connection: keep-alive
-Transfer-Encoding: chunked
+Content-Length: 125
 
 {
+  "$type": "resource",
+  "$id": "/users/1",
+  "$expires": 60000,
   "displayName": "Joe",
   "age": 42,
-  "gender": "M"
+  "gender": "male"
 }
 
-$ curl -X POST -i http://127.0.0.1:5150/user
+
+$ curl -i http://127.0.0.1:5150/users/3
 HTTP/1.1 404 Not Found
 Content-Type: application/json
-Date: Thu, 03 Sep 2015 18:28:10 GMT
+Date: Thu, 08 Feb 2018 23:37:36 GMT
 Connection: keep-alive
-Transfer-Encoding: chunked
+Content-Length: 145
 
 {
-  "error": "Not found",
-  "exception": {
-    "error": "No POST handler for /user"
-  }
+  "code": 2000,
+  "error": "UNKNOWN",
+  "message": "User not found",
+  "properties": [],
+  "$httpStatus": 404,
+  "$httpMessage": "NOT FOUND"
 }
 
 ```
 
-In addition, Monocle APIs provided flexibility by allowing the client to decide how much data to get back:
+Property filtering can be used to restrict how much data is returned.
 
 ```bash
-$ curl -i http://127.0.0.1:5150/user?props=displayName,age
+$ curl -i http://127.0.0.1:5150/users/1?props=displayName,age
 HTTP/1.1 200 OK
 Content-Type: application/json
-Date: Thu, 13 Aug 2015 17:50:29 GMT
+cache-control: private, max-age=60000
+Date: Thu, 08 Feb 2018 23:39:04 GMT
 Connection: keep-alive
-Transfer-Encoding: chunked
+Content-Length: 107
 
 {
+  "$type": "resource",
+  "$id": "/users/1",
+  "$expires": 60000,
   "displayName": "Alice",
   "age": 27
 }
-```
 
-View the details of any endoint by making an OPTIONS request.
-
-```bash
-$ curl -X OPTIONS http://127.0.0.1:5150/user
-HTTP/1.1 200 OK
-Content-Type: application/json
-Date: Thu, 13 Aug 2015 20:47:46 GMT
-Connection: keep-alive
-Transfer-Encoding: chunked
-
-{
-  "pattern": "/user",
-  "methods": [
-    "GET",
-    "PUT",
-    "OPTIONS"
-  ],
-  "schema": {
-    "type": "object",
-    "properties": {
-      "displayName": {
-        "type": "string"
-      },
-      "age": {
-        "type": "integer"
-      },
-      "gender": {
-        "type": "string"
-      }
-    }
-  }
-}
 ```
 
 See `demo/index.js` for advanced usage.
