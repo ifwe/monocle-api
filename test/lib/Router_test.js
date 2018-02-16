@@ -4574,4 +4574,73 @@ describe('API Router', function() {
             });
         });
     });
+
+    describe('documentation', function() {
+        beforeEach(function() {
+            this.router = new Router();
+            this.connection = new Connection(this.router, {}, {});
+
+            var abcSchema = {
+                type: "object",
+                properties: {
+                    foo: { type: "string" }
+                }
+            };
+            var defSchema = {
+                type: "object",
+                properties: {
+                    id: { type: "number" }
+                }
+            };
+
+            this.router.route('/abc', abcSchema, {
+                get: sinon.stub(),
+                delete: sinon.stub()
+            });
+
+            this.router.route('/def/:id', defSchema, {
+                get: sinon.stub(),
+                put: sinon.stub(),
+                delete: sinon.stub()
+            });
+        });
+
+        it('is available at root with OPTIONS request', function() {
+            return this.connection.options('/')
+            .then(function(options) {
+                options.should.have.property('paths');
+
+                // Ensure all paths are present
+                options.paths.should.have.property('/abc');
+                options.paths.should.have.property('/def/{id}'); // swagger format yo!
+
+                // Ensure all methods are listed
+                options.paths['/abc'].should.have.property('get');
+                options.paths['/abc'].should.have.property('delete');
+                options.paths['/abc'].should.not.have.property('put');
+                options.paths['/abc'].should.not.have.property('post');
+                options.paths['/abc'].should.not.have.property('patch');
+                options.paths['/def/{id}'].should.have.property('get');
+                options.paths['/def/{id}'].should.have.property('put');
+                options.paths['/def/{id}'].should.have.property('delete');
+                options.paths['/def/{id}'].should.not.have.property('post');
+                options.paths['/def/{id}'].should.not.have.property('patch');
+            });
+        });
+
+        it('is available for each resource with OPTIONS request', function() {
+            return this.connection.options('/abc')
+            .then(function(options) {
+                // Ensure all paths are present
+                options.should.have.property('/abc');
+
+                // Ensure all methods are listed
+                options['/abc'].should.have.property('get');
+                options['/abc'].should.have.property('delete');
+                options['/abc'].should.not.have.property('put');
+                options['/abc'].should.not.have.property('post');
+                options['/abc'].should.not.have.property('patch');
+            });
+        });
+    });
 });
