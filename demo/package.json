@@ -9,13 +9,13 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "bluebird": "2.9.34",
-    "body-parser": "1.13.3",
-    "connect": "3.4.0",
+    "bluebird": "3.5.1",
+    "body-parser": "1.18.3",
+    "connect": "3.6.6",
     "connect-chain": "0.0.1",
-    "lodash": "3.10.1",
-    "method-override": "2.3.5",
-    "serve-static": "1.10.2",
-    "swagger-ui-dist": "3.6.1"
+    "lodash": "4.17.10",
+    "method-override": "3.0.0",
+    "serve-static": "1.13.2",
+    "swagger-ui-dist": "3.17.5"
   }
 }
