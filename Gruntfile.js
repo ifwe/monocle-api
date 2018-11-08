@@ -75,6 +75,7 @@ module.exports = function(grunt) {
 
     // TODO: Migrate this to https://www.npmjs.com/package/grunt-mocha-test#instrumenting-source-files-with-coverage-data-before-running-tests
     // Generates test coverage report
+    // As a substitute, just use `npm test` instead
     // grunt.registerTask('coverage', 'Unit test code coverage', ['clean:coverage', 'mochaTest:instrument', 'mochaTest:coverage']);
 
     // Generates documentation
