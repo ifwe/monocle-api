@@ -18,6 +18,18 @@ module.exports = function(grunt) {
             coverage: ['test/coverage.html']
         },
 
+        // https://www.npmjs.com/package/grunt-mocha-test
+        mochaTest: {
+            test: {
+                options: {
+                    reporter: 'spec',
+                    require: './test/test_runner',
+                    ui: 'bdd',
+                    timeout: 200
+                },
+                src: ['test/**/*_test.js']
+            }
+        },
         //Bump up version
         bump: {
             options: {
@@ -61,8 +73,9 @@ module.exports = function(grunt) {
     // Runs all unit tests
     grunt.registerTask('test', 'All unit tests', ['mochaTest:test']);
 
+    // TODO: Migrate this to https://www.npmjs.com/package/grunt-mocha-test#instrumenting-source-files-with-coverage-data-before-running-tests
     // Generates test coverage report
-    grunt.registerTask('coverage', 'Unit test code coverage', ['clean:coverage', 'mochaTest:instrument', 'mochaTest:coverage']);
+    // grunt.registerTask('coverage', 'Unit test code coverage', ['clean:coverage', 'mochaTest:instrument', 'mochaTest:coverage']);
 
     // Generates documentation
     grunt.registerTask('docs', 'Generate documentation', ['clean:docs', 'docco:main']);
