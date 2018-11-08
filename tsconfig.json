@@ -1,0 +1,13 @@
+{
+    "compilerOptions": {
+        "outDir": "./built",
+        "checkJs": true,
+        "noEmit": true,
+        "allowJs": true,
+        "target": "es6",
+        "moduleResolution": "node"
+    },
+    "include": [
+        "lib"
+    ]
+}
