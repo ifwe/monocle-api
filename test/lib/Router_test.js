@@ -2379,7 +2379,7 @@ describe('API Router', function() {
                 });
             });
 
-            it('only makes necessary calls to fullfill requested properties', function() {
+            it('only makes necessary calls to fulfill requested properties', function() {
                 return this.connection.get('/parent', {
                     props: ['child.foo', 'child.dur']
                 })
@@ -3775,7 +3775,7 @@ describe('API Router', function() {
                 this.middleware(this.req, this.res, this.next);
             });
 
-            describe('if speficied in url returns default get parameter', function() {
+            describe('if specified in url returns default get parameter', function() {
                 it('which is a string', function(done) {
                     this.req.url = '/foo?props=bar,test1&test1=hello';
                     this.middleware = this.router.middleware();
@@ -3822,7 +3822,7 @@ describe('API Router', function() {
                 });
             });
 
-            it('returns default get parameter if not speficied in url', function(done) {
+            it('returns default get parameter if not specified in url', function(done) {
                 this.res.end = sinon.spy(function() {
                     this.res.end.lastCall.args[0].should.be.ok;
                     var obj = JSON.parse(this.res.end.lastCall.args[0]);
@@ -3854,7 +3854,7 @@ describe('API Router', function() {
                     this.badResource = { bar: 'test bar' };
                     // Force serialization to fail
                     sinon.stub(JSON, 'stringify')
-                    .returns('{}') // return plain JSON by defailt
+                    .returns('{}') // return plain JSON by default
                     .withArgs(this.badResource, null, 2).throws(new Error("Unable to serialize object"));
                 });
 
