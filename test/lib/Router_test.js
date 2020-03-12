@@ -1008,6 +1008,9 @@ describe('API Router', function() {
                         type: 'object',
                         properties: {
                             paramIntAndBool: {type: ['integer', 'boolean']},
+                            // NOTE(TysonAndre) 'float' is not part of the latest version of JSON schema v4,
+                            // this should be changed to 'number' when jsen is upgraded
+                            // See https://github.com/ifwe/monocle-api/issues/86
                             paramIntAndFloat: {type: ['integer', 'float']},
                             paramStringAndBooleanAndInt: {type: ['integer', 'string', 'boolean']},
                             paramArrayAndString: {type: ['array', 'string'], items: {type: 'integer'}},

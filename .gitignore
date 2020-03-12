@@ -6,3 +6,4 @@ npm-debug.log
 .idea
 .*.swp
 .*.swo
+.nyc_output
