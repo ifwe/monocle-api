@@ -16,6 +16,6 @@
     "lodash": "4.17.19",
     "method-override": "3.0.0",
     "serve-static": "1.13.2",
-    "swagger-ui-dist": "3.17.5"
+    "swagger-ui-dist": "4.1.3"
   }
 }
