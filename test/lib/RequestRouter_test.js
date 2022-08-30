@@ -1,10 +1,8 @@
 var RequestRouter = require('../../lib/RequestRouter');
 var Request = require('../../lib/Request');
 
-var Resource = require('../../lib/Resource');
-var Busboy = require('busboy');
 var EventEmitter = require('events').EventEmitter;
-var Promise = require('bluebird');
+var assert = require('assert');
 
 describe('Request Router', function() {
     beforeEach(function() {
@@ -240,11 +238,6 @@ describe('Request Router', function() {
         });
 
         describe('streaming API', function() {
-            it('is available on multipart requests', function() {
-                var stream = this.requestRouter.getStream();
-                stream.should.be.instanceOf(Busboy);
-            });
-
             it('pipes request to stream', function() {
                 var stream = this.requestRouter.getStream();
                 this.connection.raw.req.pipe.calledWith(stream).should.be.true;
@@ -680,7 +673,7 @@ describe('Request Router', function() {
                 });
 
                 describe('mixed valid and invalid', function() {
-                    it('resolves and rejects each promise accordingly', function() {
+                    it('resolves and rejects each promise accordingly', async function() {
                         var stream = this.requestRouter.getStream();
                         var promise1 = this.requestRouter.getUpload('photo');
                         var promise2 = this.requestRouter.getUpload('audio');
@@ -698,14 +691,12 @@ describe('Request Router', function() {
 
                         stream.emit('finish');
 
-                        return Promise.all([promise1, promise2])
-                        .then(function(anything) {
-                             throw new Error('Did not expect promise to resolve');
-                        })
-                        .catch(function(anything) {
-                            promise1.isRejected().should.be.true;
-                            promise2.isFulfilled().should.be.true;
-                        });
+
+                        await Promise.all([
+                          assert.rejects(promise1),
+                          promise2,
+                        ]);
+                        await promise2;
                     });
                 });
             });

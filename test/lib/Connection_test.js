@@ -2,7 +2,6 @@ var Router = require('../../lib/Router');
 var Request = require('../../lib/Request');
 var Resource = require('../../lib/Resource');
 var Connection = require('../../lib/Connection');
-var Promise = require('bluebird');
 
 describe('Connection', function() {
     it('is a constructor', function() {

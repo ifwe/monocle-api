@@ -1,5 +1,4 @@
 var Symlink = require('../../lib/Symlink');
-var Promise = require('bluebird');
 var Resource = require('../../lib/Resource');
 
 describe('Symlink', function() {
