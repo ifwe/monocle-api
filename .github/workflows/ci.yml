@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  test:
+    name: Test on node ${{ matrix.node_version }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node_version: [12, 14, 16, 17]
+    steps:
+      - uses: actions/checkout@master
+      - name: Use Node.js ${{ matrix.node_version }}
+        uses: actions/setup-node@master
+        with:
+          node-version: ${{ matrix.node_version }}
+      - name: Install dependencies
+        # TODO switch away from jsen and figure out impact of library change and migration steps on applications using this.
+        run: npm ci --no-audit
+      - name: build:lib, test:integration
+        run: |
+          # Actually runs typescript, eslint is failing
+          npm run lint || exit 1
+          npm run test || exit 1

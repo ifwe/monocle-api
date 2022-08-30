@@ -1,6 +1,5 @@
 var connect = require('connect');
 var app = connect();
-var Promise = require('bluebird');
 
 // Allow parsing of JSON-encoded request body
 var bodyParser = require('body-parser');

@@ -6,7 +6,6 @@
 /*** Initial dependencies **/
 
 var _ = require('lodash');
-var Promise = require('bluebird');
 var Router = require('../lib');
 var Resource = require('../lib').Resource;
 var OffsetPaginator = require('../lib').OffsetPaginator;

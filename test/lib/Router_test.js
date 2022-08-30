@@ -7,7 +7,6 @@ var OffsetPaginator = require('../../lib/OffsetPaginator');
 var Connection = require('../../lib/Connection');
 var Symlink = require('../../lib/Symlink');
 var HttpStatusCodes = require('../../lib/HttpStatusCodes');
-var Promise = require('bluebird');
 var jsen = require('jsen');
 var errorSchema = require('../../lib/schemas/error');
 

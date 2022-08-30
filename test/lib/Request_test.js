@@ -2,7 +2,6 @@ var Request = require('../../lib/Request');
 var Resource = require('../../lib/Resource');
 var Busboy = require('busboy');
 var EventEmitter = require('events').EventEmitter;
-var Promise = require('bluebird');
 
 describe('Request', function() {
     it('is a constructor', function() {
