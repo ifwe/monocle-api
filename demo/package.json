@@ -10,7 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "bluebird": "3.5.1",
-    "body-parser": "1.18.3",
+    "body-parser": "1.20.1",
     "connect": "3.6.6",
     "connect-chain": "0.0.1",
     "lodash": "4.17.21",
