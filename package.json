@@ -40,7 +40,7 @@
     "grunt-contrib-watch": "^1.1.0",
     "grunt-docco": "0.3.3",
     "grunt-mocha-test": "^0.13.3",
-    "mocha": "^9.2.2",
+    "mocha": "^11.1.0",
     "nyc": "^15.0.0",
     "sinon": "^12.0.1"
   },
